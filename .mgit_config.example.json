@@ -1,0 +1,87 @@
+{
+  "repositories": [
+    {
+      "name": "repo1",
+      "url": "https://github.com/user/repo1.git"
+    },
+    {
+      "name": "repo2",
+      "url": "https://github.com/user/repo2.git"
+    },
+    {
+      "name": "repo3",
+      "url": "https://github.com/user/repo3.git"
+    }
+  ],
+  "tasks": [
+    {
+      "name": "debug_build",
+      "steps": [
+        {
+          "type": "sh",
+          "repo": "repo1",
+          "cmd": "build.sh",
+          "args": ["-d"]
+        },
+        {
+          "type": "sh",
+          "repo": "repo2",
+          "cmd": "build.sh",
+          "args": ["-d"]
+        },
+        {
+          "type": "sh",
+          "repo": "repo3",
+          "cmd": "build.sh",
+          "args": ["-d"]
+        }
+      ]
+    },
+    {
+      "name": "clean",
+      "steps": [
+        {
+          "type": "sh",
+          "repo": "repo1",
+          "cmd": "build.sh",
+          "args": ["-c"]
+        },
+        {
+          "type": "sh",
+          "repo": "repo2",
+          "cmd": "build.sh",
+          "args": ["-c"]
+        },
+        {
+          "type": "sh",
+          "repo": "repo3",
+          "cmd": "build.sh",
+          "args": ["-c"]
+        }
+      ]
+    },
+    {
+      "name": "test_all",
+      "steps": [
+        {
+          "type": "sh",
+          "repo": "repo1",
+          "cmd": "npm",
+          "args": ["test"]
+        },
+        {
+          "type": "sh",
+          "repo": "repo2",
+          "cmd": "cargo",
+          "args": ["test"]
+        },
+        {
+          "type": "sh",
+          "repo": "repo3",
+          "cmd": "python",
+          "args": ["-m", "pytest"]
+        }
+      ]
+    }
+  ]
+}
