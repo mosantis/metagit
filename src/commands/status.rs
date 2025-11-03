@@ -81,7 +81,7 @@ pub fn status_command(detailed: bool, all: bool) -> Result<()> {
 
         // Print header for detailed view with COMMITS and OWNER columns
         println!(
-            "{:<28} {:<10} {:<15} {:<20} {}",
+            "{:<28} {:<10} {:<25} {:<20} {}",
             format!("{} REPOSITORY", folder_icon).bold(),
             format!("{} COMMITS", commit_icon).bold(),
             format!("{} OWNER", owner_icon).bold(),
@@ -101,8 +101,8 @@ pub fn status_command(detailed: bool, all: bool) -> Result<()> {
                 };
 
                 // Get branch status for coloring
-                let branch_status = get_branch_status(repo_path, &branch.name)
-                    .unwrap_or(BranchStatus::Synced);
+                let branch_status =
+                    get_branch_status(repo_path, &branch.name).unwrap_or(BranchStatus::Synced);
 
                 let branch_display = color_branch(&branch.name, branch_status).to_string();
 
@@ -110,7 +110,7 @@ pub fn status_command(detailed: bool, all: bool) -> Result<()> {
                 let commit_count = branch.get_owner_commit_count();
 
                 println!(
-                    "  {:<28} {:<10} {:<15} {:<20} {}",
+                    "  {:<28} {:<10} {:<25} {:<20} {}",
                     repo_name,
                     commit_count,
                     branch.owner,
@@ -138,8 +138,8 @@ pub fn status_command(detailed: bool, all: bool) -> Result<()> {
             let repo_path = Path::new(&state.name);
 
             // Get branch status for coloring
-            let branch_status = get_branch_status(repo_path, &state.current_branch)
-                .unwrap_or(BranchStatus::Synced);
+            let branch_status =
+                get_branch_status(repo_path, &state.current_branch).unwrap_or(BranchStatus::Synced);
 
             let branch_display = color_branch(&state.current_branch, branch_status).to_string();
 

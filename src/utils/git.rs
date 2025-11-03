@@ -65,13 +65,27 @@ fn extract_owner(branch_name: &str) -> String {
     }
 }
 
+/// Find the main branch (master or main)
+fn find_main_branch(repo: &Repository) -> Option<Oid> {
+    // Try "master" first, then "main"
+    for branch_name in &["master", "main"] {
+        let ref_name = format!("refs/heads/{}", branch_name);
+        if let Ok(reference) = repo.find_reference(&ref_name) {
+            if let Some(oid) = reference.target() {
+                return Some(oid);
+            }
+        }
+    }
+    None
+}
+
 /// Collect commit statistics for a branch
-/// If last_commit_sha is provided, only collects stats from commits after that SHA
+/// Only counts commits that are NOT in the main branch (master/main)
 /// Returns (commit_stats, last_commit_sha, last_updated_time)
 fn collect_branch_stats(
     repo: &Repository,
+    branch_name: &str,
     branch_oid: Oid,
-    last_commit_sha: Option<&str>,
 ) -> Result<(HashMap<String, usize>, String, DateTime<Utc>)> {
     let mut commit_stats = HashMap::new();
     let mut revwalk = repo.revwalk()?;
@@ -79,13 +93,19 @@ fn collect_branch_stats(
     // Start from the branch tip
     revwalk.push(branch_oid)?;
 
-    // If we have a last_commit_sha, hide commits before it (so we only walk new commits)
-    if let Some(sha) = last_commit_sha {
-        if let Ok(oid) = Oid::from_str(sha) {
-            // Hide the old commit and its ancestors
-            revwalk.hide(oid)?;
+    // Find and hide commits from main branch (to only count unmerged commits)
+    // Skip this for the main branch itself
+    let main_branch_names = ["master", "main"];
+    if !main_branch_names.contains(&branch_name) {
+        if let Some(main_oid) = find_main_branch(repo) {
+            // Hide all commits in main branch
+            revwalk.hide(main_oid)?;
         }
     }
+
+    // Note: We don't use incremental updates (last_commit_sha) for unmerged commits
+    // because the main branch can change, making the old counts invalid.
+    // We always recalculate unmerged commits from scratch.
 
     let mut last_commit_time = Utc::now();
     let mut last_sha = branch_oid.to_string();
@@ -116,11 +136,11 @@ fn collect_branch_stats(
 }
 
 /// Refresh repository state with commit statistics
-/// If previous_state is provided, performs incremental update
+/// Note: Always recalculates from scratch to ensure accurate unmerged commit counts
 pub fn refresh_repo_state(
     repo_path: &Path,
     repo_name: &str,
-    previous_state: Option<&RepoState>,
+    _previous_state: Option<&RepoState>,
 ) -> Result<RepoState> {
     let repo = Repository::open(repo_path)
         .with_context(|| format!("Failed to open repository at {:?}", repo_path))?;
@@ -129,17 +149,6 @@ pub fn refresh_repo_state(
     let current_branch = head.shorthand().unwrap_or("(detached)").to_string();
 
     let mut branches = Vec::new();
-
-    // Create a map of previous branch info for quick lookup
-    let previous_branches: HashMap<String, &BranchInfo> = previous_state
-        .map(|state| {
-            state
-                .branches
-                .iter()
-                .map(|b| (b.name.clone(), b))
-                .collect()
-        })
-        .unwrap_or_default();
 
     // Get all local branches
     for branch in repo.branches(Some(BranchType::Local))? {
@@ -150,22 +159,10 @@ pub fn refresh_repo_state(
         let reference = branch.get();
         let branch_oid = reference.target().context("Branch has no target")?;
 
-        // Check if we have previous stats for this branch
-        let previous_branch = previous_branches.get(&name);
-        let last_commit_sha = previous_branch.and_then(|b| b.last_commit_sha.as_deref());
-
-        // Collect commit stats (incrementally if we have previous data)
-        let (new_stats, last_sha, last_updated) =
-            collect_branch_stats(&repo, branch_oid, last_commit_sha)?;
-
-        // Merge with previous stats if doing incremental update
-        let mut commit_stats = previous_branch
-            .map(|b| b.commit_stats.clone())
-            .unwrap_or_default();
-
-        for (author, count) in new_stats {
-            *commit_stats.entry(author).or_insert(0) += count;
-        }
+        // Collect commit stats (only unmerged commits from main branch)
+        // We always recalculate from scratch since main branch can change
+        let (commit_stats, last_sha, last_updated) =
+            collect_branch_stats(&repo, &name, branch_oid)?;
 
         // Calculate owner based on commit stats
         let temp_branch = BranchInfo {
