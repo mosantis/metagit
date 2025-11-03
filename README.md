@@ -2,18 +2,36 @@
 
 A command-line tool written in Rust to enhance git functionality when dealing with multiple repositories, without the complexity of git submodules.
 
+## Table of Contents
+
+- [Features](#features)
+- [Installation](#installation)
+- [Quick Start](#quick-start)
+- [Usage](#usage)
+- [Task Execution](#task-execution)
+- [Cross-Platform Support](#cross-platform-support)
+- [Icon Support](#icon-support)
+- [Configuration](#configuration)
+- [Architecture](#architecture)
+- [Development](#development)
+- [Testing](#testing)
+
 ## Features
 
 - **Multi-repository management**: Manage multiple git repositories from a single configuration
 - **Git operations**: Pull, push, sync, and check status across all repositories
-- **Task execution**: Define and execute custom tasks across multiple repositories
+- **Task execution**: Define and execute custom tasks across multiple repositories with real-time progress
+- **Cross-platform support**: Platform-specific task steps for Windows, Linux, and macOS
 - **Local state caching**: Uses an embedded database (sled) to cache repository state
 - **Detailed status views**: See all branches and their last update times
 - **Beautiful icons and visual feedback**:
   - Standard Unicode icons work out-of-the-box in all terminals
   - Enhanced Nerd Font icons for a premium terminal experience
   - Color-coded output for better readability
-  - See [ICONS.md](ICONS.md) for full details and setup instructions
+  - Flicker-free progress updates
+- **Smart script type inference**: Automatically detects script types from extensions (.bat, .ps1, .sh, etc.)
+- **Error handling**: Post-mortem logs for failed tasks with captured output
+- **Ad-hoc commands**: Execute arbitrary commands in addition to script files
 
 ## Installation
 
@@ -26,9 +44,32 @@ cargo build --release
 
 You can then copy it to your PATH:
 ```bash
+# Linux/macOS
 cp target/release/mgit ~/.local/bin/
 # or
 sudo cp target/release/mgit /usr/local/bin/
+
+# Windows
+copy target\release\mgit.exe C:\Windows\System32\
+```
+
+## Quick Start
+
+```bash
+# 1. Navigate to a directory containing multiple git repositories
+cd my-projects/
+
+# 2. Initialize configuration
+mgit init
+
+# 3. Check repository status
+mgit status
+
+# 4. Pull all repositories
+mgit pull
+
+# 5. Run a custom task
+mgit run build_all
 ```
 
 ## Usage
@@ -41,23 +82,7 @@ Scan the current directory for git repositories and create a `.mgit_config.json`
 mgit init
 ```
 
-This will detect all git repositories in subdirectories and create a configuration file like:
-
-```json
-{
-  "repositories": [
-    {
-      "name": "repo1",
-      "url": "https://github.com/user/repo1.git"
-    },
-    {
-      "name": "repo2",
-      "url": "https://github.com/user/repo2.git"
-    }
-  ],
-  "tasks": []
-}
-```
+This will detect all git repositories in subdirectories and create a configuration file.
 
 ### Status
 
@@ -69,16 +94,9 @@ mgit status
 
 Output:
 ```
-REPOSITORY                     BRANCH                                UPDATED
-⚡ repo1                        ⎇ main                                2 hours ago
-⚡ repo2                        ⎇ develop                             10 days ago
-```
-
-With Nerd Fonts enabled (`NERD_FONT=1`):
-```
-REPOSITORY                     BRANCH                                UPDATED
- repo1                         main                                2 hours ago
- repo2                         develop                             10 days ago
+📁 REPOSITORY                   🕒 UPDATED              ⎇ BRANCH
+  repo1                        2 hours ago           main
+  repo2                        10 days ago           develop
 ```
 
 For detailed status showing all branches:
@@ -89,39 +107,27 @@ mgit status -d
 
 Output:
 ```
-REPOSITORY                     BRANCH                               UPDATED
-⚡ repo1                        ⎇ me:main                             2 hours ago
-⚡ repo1                        ⎇ andy:feature_5678_search_all        10/21/2005
-⚡ repo1                        ⎇ lila:feature_5598_refactoring       10/21/2005
-⚡ repo2                        ⎇ me:main                             3 weeks ago
-⚡ repo2                        ⎇ me:develop                          10 days ago
+📁 REPOSITORY                   🕒 UPDATED              ⎇ BRANCH
+  repo1                        2 hours ago           me:main
+  repo1                        10/21/2005            andy:feature_5678_search_all
+  repo2                        3 weeks ago           me:main
+  repo2                        10 days ago           me:develop
 ```
 
-### Pull
-
-Pull all repositories:
+### Git Operations
 
 ```bash
+# Pull all repositories
 mgit pull
-```
 
-### Push
-
-Push all repositories:
-
-```bash
+# Push all repositories
 mgit push
-```
 
-### Sync
-
-Sync (pull and push) all repositories:
-
-```bash
+# Sync (pull and push) all repositories
 mgit sync
 ```
 
-### Task Execution
+## Task Execution
 
 Define tasks in `.mgit_config.json`:
 
@@ -129,73 +135,251 @@ Define tasks in `.mgit_config.json`:
 {
   "repositories": [
     {
-      "name": "repo1",
-      "url": "https://github.com/user/repo1.git"
+      "name": "frontend",
+      "url": "https://github.com/user/frontend.git"
     },
     {
-      "name": "repo2",
-      "url": "https://github.com/user/repo2.git"
+      "name": "backend",
+      "url": "https://github.com/user/backend.git"
     }
   ],
   "tasks": [
     {
-      "name": "debug_build",
+      "name": "build_all",
       "steps": [
-        { "type": "sh", "repo": "repo1", "cmd": "build.sh", "args": ["-d"] },
-        { "type": "sh", "repo": "repo2", "cmd": "build.sh", "args": ["-d"] }
-      ]
-    },
-    {
-      "name": "clean",
-      "steps": [
-        { "type": "sh", "repo": "repo1", "cmd": "build.sh", "args": ["-c"] },
-        { "type": "sh", "repo": "repo2", "cmd": "build.sh", "args": ["-c"] }
+        { "repo": "frontend", "cmd": "build.bat", "args": [] },
+        { "repo": "backend", "cmd": "build.sh", "args": [] }
       ]
     }
   ]
 }
 ```
 
-Then run a task:
+Run a task:
 
 ```bash
-mgit run debug_build
+mgit run build_all
 ```
 
-The tool will display progress for each step:
+The tool displays real-time progress:
 
 ```
-Executing "debug_build"...
+Executing "build_all"...
 
-  ⚙ repo1                running...           [build.sh -d]
-  ⚙ repo2                running...           [build.sh -d]
+  frontend             ⚙ running...                   build.bat
+  backend              ⏳ waiting...                   build.sh
 ```
 
-Upon completion, you'll see status icons:
+### Supported Script Types
+
+Scripts are automatically detected by extension, or you can specify the `type` field:
+
+- `sh` - Shell scripts (Linux/macOS)
+- `bat` or `cmd` - Windows Batch/CMD scripts
+- `ps1` - PowerShell scripts
+- `exe` - Executables
+
+**Auto-detection example** (type field optional):
+```json
+{
+  "repo": "app",
+  "cmd": "build.bat",
+  "args": []
+}
 ```
-Executing "debug_build"...
 
-  ✓ repo1                completed            [build.sh -d]
-  ✓ repo2                completed            [build.sh -d]
+**Explicit type** (for ad-hoc commands):
+```json
+{
+  "type": "cmd",
+  "repo": "app",
+  "cmd": "echo",
+  "args": ["Building application..."]
+}
 ```
 
-With Nerd Fonts enabled, the icons are even more distinctive:
+### Error Handling
+
+When tasks fail, MetaGit displays detailed post-mortem logs:
+
 ```
-  repo1                running...           [build.sh -d]
-   repo2                completed            [build.sh -d]
+════════════════════════════════════════════════════════════════════════════════
+Failed Task Logs
+════════════════════════════════════════════════════════════════════════════════
+
+▶ frontend build.bat
+────────────────────────────────────────────────────────────────────────────────
+Output:
+  Building frontend...
+  ERROR: Dependency conflict detected!
+  Build failed!
+
+Errors:
+  npm ERR! peer dep missing: react@^18.0.0
+
+════════════════════════════════════════════════════════════════════════════════
 ```
 
-#### Supported Script Types
+## Cross-Platform Support
 
-The `type` field in task steps supports:
-- `sh` - Shell scripts (default)
-- Automatically detected from file extension:
-  - `.sh` - Shell
-  - `.bat`, `.cmd` - Windows Batch
-  - `.ps1` - PowerShell
-  - `.exe` - Executable
+MetaGit supports platform-specific task steps, allowing a single task to work across Windows, Linux, and macOS with different commands for each platform.
 
-## Configuration File
+### Platform Field
+
+Add a `platform` field to any task step:
+
+- `"windows"` - Windows only
+- `"linux"` - Linux only
+- `"macos"` - macOS only
+- `"linux,macos"` - Multiple platforms (comma-separated)
+- `"all"` - All platforms (default)
+
+### Cross-Platform Example
+
+```json
+{
+  "name": "build",
+  "steps": [
+    {
+      "platform": "windows",
+      "repo": "app",
+      "cmd": "build.bat",
+      "args": []
+    },
+    {
+      "platform": "linux,macos",
+      "type": "sh",
+      "repo": "app",
+      "cmd": "build.sh",
+      "args": []
+    },
+    {
+      "platform": "all",
+      "type": "cmd",
+      "repo": "shared",
+      "cmd": "echo",
+      "args": ["Build complete!"]
+    }
+  ]
+}
+```
+
+When you run this task:
+- On **Windows**: Only the Windows and "all" steps execute
+- On **Linux**: Only the Linux and "all" steps execute
+- On **macOS**: Only the macOS and "all" steps execute
+
+### Common Cross-Platform Patterns
+
+#### Different Build Tools
+```json
+{
+  "platform": "windows",
+  "type": "cmd",
+  "repo": "backend",
+  "cmd": "msbuild",
+  "args": ["/p:Configuration=Release"]
+},
+{
+  "platform": "linux,macos",
+  "type": "sh",
+  "repo": "backend",
+  "cmd": "make",
+  "args": ["release"]
+}
+```
+
+#### Package Managers
+```json
+{
+  "platform": "linux",
+  "type": "sh",
+  "repo": "app",
+  "cmd": "apt-get",
+  "args": ["update"]
+},
+{
+  "platform": "macos",
+  "type": "sh",
+  "repo": "app",
+  "cmd": "brew",
+  "args": ["update"]
+},
+{
+  "platform": "windows",
+  "type": "cmd",
+  "repo": "app",
+  "cmd": "choco",
+  "args": ["upgrade", "all"]
+}
+```
+
+## Icon Support
+
+MetaGit supports beautiful icons in terminal output with automatic Nerd Font detection.
+
+### Enabling Nerd Font Icons
+
+Set the environment variable:
+
+```bash
+export NERD_FONT=1
+# or
+export USE_NERD_FONT=1
+```
+
+Per-command usage:
+```bash
+NERD_FONT=1 mgit status
+```
+
+### Icon Sets
+
+**Without Nerd Fonts (Default)**:
+- Folder/Repository: 📁
+- Time/Updated: 🕒
+- Branch: ⎇
+- Success: ✓
+- Error: ✗
+- Warning: ⚠
+- Waiting: ⏳
+- Running: ⚙
+
+**With Nerd Fonts Enabled**:
+- Folder/Repository:  (Folder icon)
+- Time/Updated:  (Clock icon)
+- Branch:  (Git branch icon)
+- Success:  (Check circle)
+- Error:  (Times circle)
+- Warning:  (Exclamation triangle)
+- Waiting:  (Clock icon)
+- Running:  (Cog icon)
+
+### Installing Nerd Fonts
+
+1. Visit https://www.nerdfonts.com/
+2. Download a font (recommended: JetBrainsMono Nerd Font, FiraCode Nerd Font, or Hack Nerd Font)
+3. Install the font on your system
+4. Configure your terminal to use the Nerd Font
+5. Set `export NERD_FONT=1` in your shell profile (~/.bashrc, ~/.zshrc, etc.)
+
+### Making it Permanent
+
+Add to your shell profile:
+
+```bash
+# ~/.bashrc or ~/.zshrc
+export NERD_FONT=1
+```
+
+Then reload:
+```bash
+source ~/.bashrc  # or ~/.zshrc
+```
+
+## Configuration
+
+### Configuration File Structure
 
 The `.mgit_config.json` file structure:
 
@@ -213,6 +397,7 @@ The `.mgit_config.json` file structure:
       "steps": [
         {
           "type": "sh",
+          "platform": "all",
           "repo": "repository-name",
           "cmd": "script-or-command",
           "args": ["arg1", "arg2"]
@@ -223,6 +408,19 @@ The `.mgit_config.json` file structure:
 }
 ```
 
+### Field Descriptions
+
+**Repository Fields**:
+- `name`: Directory name of the repository
+- `url`: Git remote URL
+
+**Task Step Fields**:
+- `type`: Script type (`sh`, `bat`, `cmd`, `ps1`, `exe`) - optional, auto-detected from extension
+- `platform`: Target platform (`windows`, `linux`, `macos`, `all`, or comma-separated) - optional, defaults to `all`
+- `repo`: Repository name (must match a repository's name)
+- `cmd`: Script file or command to execute
+- `args`: Array of arguments to pass
+
 ## Architecture
 
 ### Key Technologies
@@ -232,10 +430,10 @@ The `.mgit_config.json` file structure:
 - **clap**: Command-line argument parsing
 - **chrono**: Date/time handling with serde support
 - **colored**: Terminal output coloring
+- **unicode-width**: Proper column alignment with Unicode/emoji icons
 
 ### Why sled?
 
-We chose sled as the embedded database for several reasons:
 - **Lightweight**: No external dependencies or server required
 - **Fast**: In-memory caching with disk persistence
 - **Simple API**: Easy key-value storage perfect for caching repo state
@@ -246,8 +444,21 @@ We chose sled as the embedded database for several reasons:
 
 1. **Library vs Command Execution**: Uses `git2` library instead of shelling out to git commands for better performance and error handling
 2. **State Caching**: Maintains local database to avoid re-scanning repositories on every command
-3. **Sequential Task Execution**: Tasks execute sequentially for simplicity and clear output (parallel execution could be added later)
+3. **Sequential Task Execution**: Tasks execute sequentially for simplicity and clear output
 4. **Vendored Dependencies**: Uses vendored OpenSSL and libgit2 for easier cross-platform builds
+5. **Change-based Display Updates**: Only redraws lines that have changed, eliminating flicker
+6. **Unicode-aware Column Alignment**: Uses `unicode-width` to calculate actual display width of icons and emojis, ensuring perfect column alignment regardless of whether standard Unicode or Nerd Font icons are used
+
+### Project Structure
+
+```
+src/
+  commands/     - Command implementations (init, status, pull, push, sync, run)
+  db/          - Database layer using sled
+  models/      - Data structures (Config, RepoState, etc.)
+  utils/       - Utility functions (git operations, icons, time formatting, script execution)
+  main.rs      - CLI entry point
+```
 
 ## Development
 
@@ -263,21 +474,143 @@ cargo build
 cargo test
 ```
 
-### Project Structure
+### Running Tests
 
+A comprehensive test environment is available:
+
+```bash
+cd test-repos
+
+# Initialize configuration
+../target/release/mgit init
+
+# Check status
+../target/release/mgit status
+../target/release/mgit status -d
+
+# Run tasks
+../target/release/mgit run build_all
+../target/release/mgit run test_all
+../target/release/mgit run cross_platform_build
 ```
-src/
-  commands/     - Command implementations (init, status, pull, push, sync, run)
-  db/          - Database layer using sled
-  models/      - Data structures (Config, RepoState, etc.)
-  utils/       - Utility functions (git operations, time formatting, script execution)
-  main.rs      - CLI entry point
+
+## Testing
+
+### Test Environment
+
+The `test-repos/` directory contains a complete test setup:
+
+- **4 Git Repositories**: frontend, backend, shared-lib, tools
+- **Multiple Script Types**: .bat, .cmd, .ps1 scripts for testing
+- **Various Tasks**: build, test, lint, deploy, CI pipeline
+- **Failure Scenarios**: Scripts that fail for testing error handling
+- **Cross-Platform Tasks**: Platform-specific steps
+
+### Available Test Tasks
+
+```bash
+# Basic operations
+mgit run build_all      # Build all projects
+mgit run test_all       # Run all tests
+mgit run lint           # Run linter
+
+# Deployment
+mgit run deploy_staging     # Deploy to staging
+mgit run deploy_production  # Deploy to production
+
+# CI/CD
+mgit run ci_pipeline    # Complete CI pipeline (build → test → lint)
+
+# Error handling
+mgit run build_with_failure   # Test single failure
+mgit run multiple_failures    # Test multiple failures
+mgit run missing_script       # Test missing file error
+
+# Cross-platform
+mgit run cross_platform_build # Platform-specific steps
+mgit run adhoc_commands       # Ad-hoc command execution
 ```
+
+### Performance
+
+- **Init**: Fast (< 1 second for multiple repos)
+- **Status**: Fast (< 1 second, uses cached data)
+- **Tasks**: Real-time progress with minimal overhead
+- **Database**: Efficient caching avoids re-scanning
+
+## Key Features Implemented
+
+### ✅ Completed Features
+
+1. **Core Git Operations**
+   - Repository discovery and initialization
+   - Status reporting (simple and detailed views)
+   - Pull, push, and sync operations
+   - Uses git2 library for performance
+
+2. **Task Execution System**
+   - Multi-step tasks with dependencies
+   - Real-time progress display
+   - Support for multiple script types
+   - Ad-hoc command execution
+   - Platform-specific steps
+   - Post-mortem error logs
+
+3. **User Experience**
+   - Beautiful colored output
+   - Icon support with Nerd Font detection
+   - Flicker-free display updates
+   - Clear error messages
+   - Relative time formatting
+
+4. **Cross-Platform Support**
+   - Windows, Linux, macOS
+   - Platform-specific task steps
+   - Auto-detection of script types
+   - Proper path handling per platform
+
+5. **Performance & Reliability**
+   - Embedded database for caching
+   - Change-based display updates
+   - Captured output for failed tasks
+   - Proper process handling
+
+## Troubleshooting
+
+### Tasks hang or don't complete
+
+Ensure scripts have proper exit codes:
+- Batch/CMD: `exit /b 0`
+- PowerShell: `exit 0`
+- Shell: `exit 0`
+
+### PowerShell execution policy errors
+
+MetaGit automatically uses `-ExecutionPolicy Bypass`, but if you have system restrictions, you may need to adjust your PowerShell policy.
+
+### Icons not displaying correctly
+
+1. Install a Nerd Font
+2. Configure your terminal to use it
+3. Set `NERD_FONT=1` environment variable
+
+### Platform-specific steps not running
+
+Check that the `platform` field matches your OS:
+- Windows: `"windows"`
+- Linux: `"linux"`
+- macOS: `"macos"`
+
+## Future Enhancements
+
+- Parallel task execution
+- Interactive TUI mode
+- Task dependency graphs
+- Watch mode for file changes
+- Remote configuration support
+- Task templates
+- Repository filters
 
 ## License
 
 MIT
-
-## Contributing
-
-Contributions welcome! Please feel free to submit issues and pull requests.

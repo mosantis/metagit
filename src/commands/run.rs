@@ -44,15 +44,23 @@ pub fn run_command(task_name: &str) -> Result<()> {
     // Create a shared status map
     let status_map: Arc<Mutex<HashMap<String, TaskStatus>>> = Arc::new(Mutex::new(HashMap::new()));
 
-    // Initialize all tasks as waiting
-    for step in &task.steps {
+    // Filter steps to only those that match the current platform
+    let steps_to_run: Vec<_> = task
+        .steps
+        .iter()
+        .filter(|step| step.should_run_on_current_platform())
+        .cloned()
+        .collect();
+
+    // Initialize all tasks as waiting (only for steps that will run)
+    for step in &steps_to_run {
         let key = format!("{}:{}", step.repo, step.cmd);
         status_map.lock().unwrap().insert(key, TaskStatus::Waiting);
     }
 
     // Spawn a thread to display progress
     let status_map_display = status_map.clone();
-    let steps = task.steps.clone();
+    let steps = steps_to_run.clone();
     let task_name_owned = task_name.to_string();
     let display_handle = thread::spawn(move || {
         let mut first_render = true;
@@ -228,7 +236,7 @@ pub fn run_command(task_name: &str) -> Result<()> {
     });
 
     // Execute tasks sequentially for now
-    for step in &task.steps {
+    for step in &steps_to_run {
         let key = format!("{}:{}", step.repo, step.cmd);
         let repo_path = Path::new(&step.repo);
 
@@ -321,7 +329,7 @@ pub fn run_command(task_name: &str) -> Result<()> {
     let final_statuses = status_map.lock().unwrap();
     let mut has_failures = false;
 
-    for step in &task.steps {
+    for step in &steps_to_run {
         let key = format!("{}:{}", step.repo, step.cmd);
         if let Some(TaskStatus::Failed(_, Some((stdout, stderr)))) = final_statuses.get(&key) {
             if !has_failures {

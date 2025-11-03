@@ -13,3 +13,4 @@ chrono = { version = "0.4", features = ["serde"] }
 sled = "0.34"
 colored = "2.1"
 walkdir = "2.5"
+unicode-width = "0.1"

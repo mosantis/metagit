@@ -27,10 +27,34 @@ pub struct TaskStep {
     pub cmd: String,
     #[serde(default)]
     pub args: Vec<String>,
+    /// Platform(s) this step should run on: "windows", "linux", "macos", or "all" (default)
+    #[serde(default = "default_platform")]
+    pub platform: String,
 }
 
 fn default_type() -> String {
     String::new() // Empty string means infer from extension
+}
+
+fn default_platform() -> String {
+    "all".to_string()
+}
+
+impl TaskStep {
+    /// Check if this step should run on the current platform
+    pub fn should_run_on_current_platform(&self) -> bool {
+        if self.platform == "all" {
+            return true;
+        }
+
+        let current_platform = std::env::consts::OS;
+
+        // Handle comma-separated platform list (e.g., "windows,linux")
+        self.platform
+            .split(',')
+            .map(|s| s.trim())
+            .any(|p| p == current_platform || p == "all")
+    }
 }
 
 impl Config {

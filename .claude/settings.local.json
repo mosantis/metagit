@@ -11,7 +11,12 @@
       "Bash(./target/release/mgit.exe run test_cmd)",
       "Bash(powershell -File ./test.ps1 psarg1 psarg2)",
       "Bash(./target/release/mgit.exe run test_all)",
-      "Bash(cat test-repos/.mgit_config.json)"
+      "Bash(cat test-repos/.mgit_config.json)",
+      "Bash(../target/release/mgit.exe run build_all)",
+      "Bash(../target/release/mgit.exe run build_with_failure)",
+      "Bash(cmd /C \"set NERD_FONT=1 && ..\\target\\release\\mgit.exe status\")",
+      "Bash(powershell -Command \"$env:NERD_FONT=''1''; & ''../target/release/mgit.exe'' status\")",
+      "Bash(../target/release/mgit.exe status -d)"
     ],
     "deny": [],
     "ask": []
