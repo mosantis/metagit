@@ -37,10 +37,14 @@ enum Commands {
     /// Sync (pull & push) all repositories
     Sync,
 
-    /// Run a task defined in .mgitconfig.json
+    /// Run a task defined in .mgitconfig.json (run without task name to list available tasks)
     Run {
-        /// Name of the task to run
-        task_name: String,
+        /// Name of the task to run (optional - omit to list all tasks)
+        task_name: Option<String>,
+
+        /// Show detailed task information
+        #[arg(short, long)]
+        detailed: bool,
     },
 }
 
@@ -53,7 +57,7 @@ fn main() -> Result<()> {
         Commands::Pull => pull_command()?,
         Commands::Push => push_command()?,
         Commands::Sync => sync_command()?,
-        Commands::Run { task_name } => run_command(&task_name)?,
+        Commands::Run { task_name, detailed } => run_command(task_name.as_deref(), detailed)?,
     }
 
     Ok(())

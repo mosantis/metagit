@@ -118,8 +118,8 @@ pub fn execute_script(
     }
 
     cmd.current_dir(working_dir)
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped());
+        .stdout(Stdio::inherit())
+        .stderr(Stdio::inherit());
 
     let child = cmd.spawn()?;
     Ok(child)

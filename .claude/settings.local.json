@@ -22,7 +22,10 @@
       "Bash(then mv \".mgit_config.json\" \".mgitconfig.json\")",
       "Bash(fi)",
       "Bash(../target/release/mgit.exe status:*)",
-      "Bash(NERD_FONT=1 ../target/release/mgit.exe status:*)"
+      "Bash(NERD_FONT=1 ../target/release/mgit.exe status:*)",
+      "Bash(./target/release/mgit.exe run:*)",
+      "Bash(../target/release/mgit.exe run)",
+      "Bash(../target/release/mgit.exe run:*)"
     ],
     "deny": [],
     "ask": []
