@@ -78,7 +78,7 @@ pub mod status {
             // Nerd Font: nf-fa-times_circle (U+F057)
             '\u{f057}'.to_string()
         } else {
-            "✗".to_string()
+            "❌".to_string()
         }
     }
 

@@ -1,7 +1,6 @@
 use anyhow::Result;
 use std::fs;
 use std::path::Path;
-
 use crate::models::{Config, Repository};
 use crate::utils::{get_repo_url, is_git_repo};
 

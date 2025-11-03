@@ -345,7 +345,7 @@ NERD_FONT=1 mgit status
 - Time/Updated: 🕒
 - Branch: ⎇
 - Success: ✓
-- Error: ✗
+- Error: ❌
 - Warning: ⚠
 - Waiting: ⏳
 - Running: ⚙

@@ -1,13 +1,10 @@
 use anyhow::{anyhow, Result};
 use colored::*;
 use std::collections::HashMap;
-
 use std::path::Path;
-
 use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::Duration;
-
 use crate::models::Config;
 use crate::utils::{execute_script, icons, ScriptType};
 
@@ -22,9 +19,9 @@ enum TaskStatus {
 impl TaskStatus {
     fn format_error_message(error_type: &str, exit_code: i32) -> String {
         match error_type {
-            "not_found" => format!("✗ script not found!"),
-            "exit_code" => format!("✗ script execution failed! (errcode: {})", exit_code),
-            _ => format!("✗ {}", error_type),
+            "not_found" => format!("❌ script not found!"),
+            "exit_code" => format!("❌ script execution failed! (errcode: {})", exit_code),
+            _ => format!("❌ {}", error_type),
         }
     }
 }
@@ -297,7 +294,7 @@ pub fn run_command(task_name: &str) -> Result<()> {
                         let error_msg = if e.to_string().contains("not found") || e.to_string().contains("cannot find") {
                             TaskStatus::format_error_message("not_found", 0)
                         } else {
-                            format!("✗ {}", e)
+                            format!("❌ {}", e)
                         };
                         status_map
                             .lock()
@@ -310,7 +307,7 @@ pub fn run_command(task_name: &str) -> Result<()> {
                 let error_msg = if e.to_string().contains("not found") || e.to_string().contains("cannot find") {
                     TaskStatus::format_error_message("not_found", 0)
                 } else {
-                    format!("✗ {}", e)
+                    format!("❌ {}", e)
                 };
                 status_map
                     .lock()
