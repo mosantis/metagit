@@ -16,7 +16,8 @@
       "Bash(../target/release/mgit.exe run build_with_failure)",
       "Bash(cmd /C \"set NERD_FONT=1 && ..\\target\\release\\mgit.exe status\")",
       "Bash(powershell -Command \"$env:NERD_FONT=''1''; & ''../target/release/mgit.exe'' status\")",
-      "Bash(../target/release/mgit.exe status -d)"
+      "Bash(../target/release/mgit.exe status -d)",
+      "Bash(cargo build:*)"
     ],
     "deny": [],
     "ask": []

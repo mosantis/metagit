@@ -19,6 +19,7 @@ pub mod git {
         }
     }
 
+    #[allow(dead_code)]
     pub fn commit() -> String {
         if use_nerd_fonts() {
             // Nerd Font: nf-dev-git_commit (U+E729)
@@ -28,6 +29,7 @@ pub mod git {
         }
     }
 
+    #[allow(dead_code)]
     pub fn repo() -> String {
         if use_nerd_fonts() {
             // Nerd Font: nf-fa-github (U+F09B)
@@ -37,6 +39,7 @@ pub mod git {
         }
     }
 
+    #[allow(dead_code)]
     pub fn modified() -> String {
         if use_nerd_fonts() {
             // Nerd Font: nf-dev-git_merge (U+E727)
@@ -69,6 +72,7 @@ pub mod status {
         }
     }
 
+    #[allow(dead_code)]
     pub fn error() -> String {
         if use_nerd_fonts() {
             // Nerd Font: nf-fa-times_circle (U+F057)
@@ -78,6 +82,7 @@ pub mod status {
         }
     }
 
+    #[allow(dead_code)]
     pub fn warning() -> String {
         if use_nerd_fonts() {
             // Nerd Font: nf-fa-exclamation_triangle (U+F071)
@@ -128,6 +133,7 @@ pub mod files {
         }
     }
 
+    #[allow(dead_code)]
     pub fn file() -> String {
         if use_nerd_fonts() {
             // Nerd Font: nf-fa-file (U+F016)
@@ -137,6 +143,7 @@ pub mod files {
         }
     }
 
+    #[allow(dead_code)]
     pub fn script() -> String {
         if use_nerd_fonts() {
             // Nerd Font: nf-oct-file_code (U+F010A)

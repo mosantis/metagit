@@ -21,6 +21,7 @@ impl StateDb {
         Ok(())
     }
 
+    #[allow(dead_code)]
     pub fn get_repo_state(&self, name: &str) -> Result<Option<RepoState>> {
         if let Some(value) = self.db.get(name.as_bytes())? {
             let state: RepoState = serde_json::from_slice(&value)?;
@@ -30,6 +31,7 @@ impl StateDb {
         }
     }
 
+    #[allow(dead_code)]
     pub fn list_all_states(&self) -> Result<Vec<RepoState>> {
         let mut states = Vec::new();
         for item in self.db.iter() {

@@ -148,6 +148,7 @@ impl Config {
     }
 
     /// Load only global configuration
+    #[allow(dead_code)]
     pub fn load_global() -> anyhow::Result<Option<Self>> {
         if let Some(global_path) = Self::global_config_path() {
             if global_path.exists() {
