@@ -1,11 +1,18 @@
 use anyhow::{Context, Result};
 use chrono::{DateTime, Utc};
 use git2::{BranchType, Cred, FetchOptions, Oid, PushOptions, RemoteCallbacks, Repository};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::env;
 use std::path::{Path, PathBuf};
 
 use crate::models::{BranchInfo, RepoState};
+
+/// Represents a unique author identity (name + email)
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+pub struct AuthorIdentity {
+    pub name: String,
+    pub email: String,
+}
 
 /// Extract hostname from git URL (e.g., "git@github.com:..." -> "github.com")
 fn extract_hostname(url: &str) -> Option<String> {
@@ -183,6 +190,44 @@ fn normalize_author(author: &str, user_aliases: &HashMap<String, Vec<String>>) -
 
     // No match found, return original
     author.to_string()
+}
+
+/// Collect all unique author identities from all branches in a repository
+/// Returns a set of author identities (name + email pairs)
+pub fn collect_all_author_identities(repo_path: &Path) -> Result<HashSet<AuthorIdentity>> {
+    let repo = Repository::open(repo_path)?;
+    let mut identities = HashSet::new();
+
+    // Iterate through all branches
+    let branches = repo.branches(Some(BranchType::Local))?;
+
+    for branch_result in branches {
+        let (branch, _) = branch_result?;
+        let branch_ref = branch.get();
+
+        if let Some(branch_oid) = branch_ref.target() {
+            let mut revwalk = repo.revwalk()?;
+            revwalk.push(branch_oid)?;
+
+            // Walk through all commits in this branch
+            for oid_result in revwalk {
+                if let Ok(oid) = oid_result {
+                    if let Ok(commit) = repo.find_commit(oid) {
+                        let author = commit.author();
+                        let name = author.name().unwrap_or("Unknown").to_string();
+                        let email = author.email().unwrap_or("").to_string();
+
+                        // Only add if we have both name and email
+                        if !name.is_empty() && !email.is_empty() {
+                            identities.insert(AuthorIdentity { name, email });
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    Ok(identities)
 }
 
 /// Collect commit statistics for a branch

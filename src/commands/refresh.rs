@@ -1,14 +1,15 @@
 use anyhow::Result;
 use colored::Colorize;
+use std::collections::HashSet;
 use std::path::Path;
 
 use crate::db::StateDb;
 use crate::models::Config;
-use crate::utils::git::refresh_repo_state;
+use crate::utils::git::{collect_all_author_identities, refresh_repo_state, AuthorIdentity};
 use crate::utils::icons;
 
 pub fn refresh_command() -> Result<()> {
-    let config = Config::load(".mgitconfig.json")?;
+    let mut config = Config::load(".mgitconfig.json")?;
     let db = StateDb::open(".mgitdb")?;
 
     let folder_icon = icons::files::folder();
@@ -19,6 +20,7 @@ pub fn refresh_command() -> Result<()> {
 
     let mut success_count = 0;
     let mut error_count = 0;
+    let mut all_identities = HashSet::new();
 
     for repo_config in &config.repositories {
         let repo_path = Path::new(&repo_config.name);
@@ -32,6 +34,11 @@ pub fn refresh_command() -> Result<()> {
             );
             error_count += 1;
             continue;
+        }
+
+        // Collect author identities from this repository
+        if let Ok(identities) = collect_all_author_identities(repo_path) {
+            all_identities.extend(identities);
         }
 
         // Get previous state from database for incremental updates
@@ -71,6 +78,26 @@ pub fn refresh_command() -> Result<()> {
         }
     }
 
+    // Process unmapped author identities
+    let mut unmapped_count = 0;
+    let mut unmapped_identities: Vec<AuthorIdentity> = all_identities
+        .into_iter()
+        .filter(|identity| !config.is_author_mapped(&identity.name, &identity.email))
+        .collect();
+
+    // Sort by name for consistent ordering
+    unmapped_identities.sort_by(|a, b| a.name.cmp(&b.name));
+
+    if !unmapped_identities.is_empty() {
+        for identity in &unmapped_identities {
+            config.add_unmapped_authors(identity.name.clone(), identity.email.clone());
+            unmapped_count += 1;
+        }
+
+        // Save updated config
+        config.save(".mgitconfig.json")?;
+    }
+
     println!();
     if error_count == 0 {
         println!(
@@ -88,6 +115,17 @@ pub fn refresh_command() -> Result<()> {
             )
             .yellow()
             .bold()
+        );
+    }
+
+    if unmapped_count > 0 {
+        println!(
+            "{}",
+            format!("Added {} new author alias{} to .mgitconfig.json",
+                unmapped_count,
+                if unmapped_count == 1 { "" } else { "es" }
+            )
+            .cyan()
         );
     }
 

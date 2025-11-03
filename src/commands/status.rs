@@ -15,6 +15,16 @@ fn color_branch(branch_name: &str, status: BranchStatus) -> ColoredString {
     }
 }
 
+/// Format owner name with " et al" in darker gray
+fn format_owner(owner: &str) -> String {
+    if owner.ends_with(" et al") {
+        let base = &owner[..owner.len() - 6]; // Remove " et al"
+        format!("{}{}", base, " et al".bright_black())
+    } else {
+        owner.to_string()
+    }
+}
+
 pub fn status_command(detailed: bool, all: bool) -> Result<()> {
     let config = Config::load(".mgitconfig.json")?;
     let db = StateDb::open(".mgitdb")?;
@@ -113,7 +123,7 @@ pub fn status_command(detailed: bool, all: bool) -> Result<()> {
                     "  {:<28} {:<10} {:<25} {:<20} {}",
                     repo_name,
                     commit_count,
-                    branch.owner,
+                    format_owner(&branch.owner),
                     format_relative_time(branch.last_updated),
                     branch_display
                 );

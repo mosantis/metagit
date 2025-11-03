@@ -184,6 +184,7 @@ impl Config {
 
     /// Normalize a user name or email to its canonical form
     /// Returns the canonical name if a match is found, otherwise returns the input unchanged
+    #[allow(dead_code)]
     pub fn normalize_user(&self, author: &str) -> String {
         // Check each canonical user and their aliases
         for (canonical, aliases) in &self.users {
@@ -205,5 +206,35 @@ impl Config {
 
         // No match found, return original
         author.to_string()
+    }
+
+    /// Check if an author identity (name or email) is already mapped in users config
+    pub fn is_author_mapped(&self, author_name: &str, author_email: &str) -> bool {
+        let name_lower = author_name.to_lowercase();
+        let email_lower = author_email.to_lowercase();
+
+        for (canonical, aliases) in &self.users {
+            // Check if name matches canonical
+            if canonical.to_lowercase() == name_lower {
+                return true;
+            }
+
+            // Check if name or email matches any alias
+            for alias in aliases {
+                let alias_lower = alias.to_lowercase();
+                if alias_lower == name_lower || alias_lower == email_lower {
+                    return true;
+                }
+            }
+        }
+
+        false
+    }
+
+    /// Add new unmapped author identities to the users section
+    /// Returns the number of new identities added
+    pub fn add_unmapped_authors(&mut self, name: String, email: String) {
+        // Use the name as the canonical key, and add email as an alias
+        self.users.entry(name.clone()).or_insert_with(|| vec![email]);
     }
 }

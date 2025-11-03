@@ -20,12 +20,15 @@ A command-line tool written in Rust to enhance git functionality when dealing wi
 
 - **Multi-repository management**: Manage multiple git repositories from a single configuration
 - **Git operations**: Pull, push, sync, and check status across all repositories
+- **SSH authentication**: Configure SSH keys per Git hosting service for private repository access
+- **User normalization**: Automatically discover and normalize author identities across repositories
 - **Task execution**: Define and execute custom tasks across multiple repositories with real-time progress
 - **Cross-platform support**: Platform-specific task steps for Windows, Linux, and macOS
 - **Configurable shells**: Choose your preferred shell executables (bash, zsh, pwsh, etc.)
 - **Global and project configuration**: Set user-wide defaults in `~/.mgitconfig.json`, override per-project
 - **Local state caching**: Uses an embedded database (sled) to cache repository state
-- **Detailed status views**: See all branches and their last update times
+- **Branch ownership tracking**: See who owns each branch and commit statistics
+- **Detailed status views**: See all branches with ownership, commit counts, and sync status
 - **Beautiful icons and visual feedback**:
   - Standard Unicode icons work out-of-the-box in all terminals
   - Enhanced Nerd Font icons for a premium terminal experience
@@ -62,16 +65,22 @@ copy target\release\mgit.exe C:\Windows\System32\
 # 1. Navigate to a directory containing multiple git repositories
 cd my-projects/
 
-# 2. Initialize configuration
+# 2. Initialize configuration (auto-runs refresh)
 mgit init
 
 # 3. Check repository status
 mgit status
 
-# 4. Pull all repositories
+# 4. Show detailed status with commit counts
+mgit status -d
+
+# 5. Pull all repositories
 mgit pull
 
-# 5. Run a custom task
+# 6. Refresh statistics after pulling
+mgit refresh
+
+# 7. Run a custom task
 mgit run build_all
 ```
 
@@ -99,12 +108,17 @@ mgit status
 
 Output:
 ```
-📁 REPOSITORY               🕒 UPDATED             ⎇ BRANCH
-   repo1                        2 hours ago           main
-   repo2                        10 days ago           develop
+📁 REPOSITORY                 🕒 UPDATED            ⎇ BRANCH
+  backend                      2 hours ago           main
+  frontend                     10 days ago           develop
 ```
 
-For detailed status showing all branches:
+Branch names are color-coded based on sync status:
+- **Green**: Fully synced with remote
+- **Red**: Has uncommitted changes or unpushed commits
+- **Yellow**: Has remote commits that need to be pulled
+
+For detailed status showing commit counts and ownership:
 
 ```bash
 mgit status -d
@@ -112,12 +126,63 @@ mgit status -d
 
 Output:
 ```
-📁 REPOSITORY               🕒 UPDATED             ⎇ BRANCH
-   repo1                        2 hours ago           me:main
-   repo1                        10/21/2005            andy:feature_5678_search_all
-   repo2                        3 weeks ago           me:main
-   repo2                        10 days ago           me:develop
+📁 REPOSITORY                 ● COMMITS  👤 OWNER                   🕒 UPDATED            ⎇ BRANCH
+  backend                      8          John et al                2 hours ago           main
+  frontend                     3          Alice                     10 days ago           develop
 ```
+
+Show all branches (not just current branch):
+
+```bash
+mgit status -a
+```
+
+Output (always detailed):
+```
+📁 REPOSITORY                 ● COMMITS  👤 OWNER                   🕒 UPDATED            ⎇ BRANCH
+  backend                      8          John et al                2 hours ago           main
+  backend                      5          Alice                     3 weeks ago           feature-auth
+  frontend                     3          Alice                     10 days ago           develop
+  frontend                     0          Bob                       2 months ago          bugfix-123
+```
+
+**Notes**:
+- Commit counts show only unmerged commits (not yet in main/master)
+- Branch ownership is calculated from commit statistics
+- "et al" suffix indicates multiple contributors (>5% threshold)
+- Use `mgit refresh` to update statistics after pulling changes
+
+### Refresh
+
+Refresh repository states and collect commit statistics:
+
+```bash
+mgit refresh
+```
+
+This command:
+- Analyzes all branches in all repositories
+- Collects commit statistics per author
+- Calculates branch ownership
+- Auto-discovers author identities and adds them to `.mgitconfig.json`
+- Caches results in the state database for fast status queries
+
+Output:
+```
+Refreshing repository states...
+
+  ✓ 📁 backend                        3 branches, 45 commits analyzed
+  ✓ 📁 frontend                       2 branches, 28 commits analyzed
+
+Successfully refreshed 2 repositories
+Added 3 new author aliases to .mgitconfig.json
+```
+
+**When to refresh**:
+- After `mgit init` (runs automatically)
+- After pulling changes to see updated commit statistics
+- When you want to discover new author identities
+- When branch ownership changes
 
 ### Git Operations
 
@@ -407,6 +472,14 @@ The `.mgitconfig.json` file structure (same for both global and project configs)
     "cmd": "cmd",
     "powershell": "pwsh"
   },
+  "credentials": {
+    "github.com": "~/.ssh/id_github",
+    "gitlab.com": "~/.ssh/id_gitlab"
+  },
+  "users": {
+    "John": ["John Doe", "JD", "john@example.com"],
+    "Alice": ["Alice Smith", "alice@company.com"]
+  },
   "repositories": [
     {
       "name": "repository-directory-name",
@@ -436,6 +509,19 @@ The `.mgitconfig.json` file structure (same for both global and project configs)
 - `sh`: Shell executable for `.sh` scripts - defaults to `"sh"` (use `"bash"`, `"zsh"`, etc. if needed)
 - `cmd`: Command prompt executable for `.bat`/`.cmd` scripts - defaults to `"cmd"`
 - `powershell`: PowerShell executable for `.ps1` scripts - defaults to `"powershell"` (use `"pwsh"` for PowerShell Core)
+
+**Credentials Configuration** (optional):
+- Maps Git hosting service hostnames to SSH private key paths
+- Supports `~` for home directory expansion
+- Falls back to SSH agent if not specified
+- See [SSH Credentials Configuration](#ssh-credentials-configuration) for details
+
+**Users Configuration** (optional):
+- Maps canonical usernames to arrays of aliases (names and emails)
+- Auto-populated by `mgit refresh` with discovered authors
+- Enables commit attribution normalization across different identities
+- Case-insensitive matching
+- See [User Normalization](#user-normalization) for details
 
 **Repository Fields**:
 - `name`: Directory name of the repository
@@ -526,9 +612,168 @@ You can specify shells either by name (if in PATH) or by absolute path for more 
 }
 ```
 
+### SSH Credentials Configuration
+
+MetaGit supports SSH authentication for private repositories using the `credentials` field. This allows you to specify which SSH key to use for each Git hosting service.
+
+**Why configure SSH credentials?**
+- Access private repositories without password prompts
+- Use different SSH keys for different services (GitHub, GitLab, Bitbucket, etc.)
+- Use organization-specific keys for work vs personal projects
+- Avoid relying on SSH agent configuration
+
+#### Credentials Structure
+
+```json
+{
+  "credentials": {
+    "github.com": "~/.ssh/id_github",
+    "gitlab.com": "~/.ssh/id_gitlab",
+    "bitbucket.org": "~/.ssh/id_bitbucket"
+  }
+}
+```
+
+#### How it works
+
+1. MetaGit extracts the hostname from repository URLs (e.g., `git@github.com:user/repo.git` → `github.com`)
+2. Looks up the hostname in the `credentials` map
+3. Uses the specified SSH private key for authentication
+4. Falls back to SSH agent if no specific key is configured
+
+#### Examples
+
+**Single key for all services**:
+```json
+{
+  "credentials": {
+    "github.com": "~/.ssh/id_rsa"
+  }
+}
+```
+
+**Different keys per service**:
+```json
+{
+  "credentials": {
+    "github.com": "~/.ssh/id_ed25519_github",
+    "gitlab.company.com": "~/.ssh/id_rsa_work",
+    "bitbucket.org": "~/.ssh/id_ed25519_personal"
+  }
+}
+```
+
+**Windows paths** (use forward slashes or escaped backslashes):
+```json
+{
+  "credentials": {
+    "github.com": "C:/Users/YourName/.ssh/id_ed25519"
+  }
+}
+```
+
+**Tilde expansion**: The `~` character is automatically expanded to your home directory on all platforms.
+
+**SSH key requirements**:
+- Both private key (`id_rsa`) and public key (`id_rsa.pub`) must exist
+- Keys must have proper permissions (600 for private key on Linux/macOS)
+- Passphrase-protected keys work if your SSH agent has them loaded
+
+### User Normalization
+
+The `users` field allows you to normalize multiple author identities to canonical usernames. This is useful when the same person commits using different names or email addresses.
+
+**Why normalize users?**
+- Consolidate commit statistics for the same person across different identities
+- Handle name changes (e.g., marriage, legal name changes)
+- Unify work and personal email addresses
+- Normalize typos in author names
+- Simplify branch ownership display
+
+#### Auto-Discovery
+
+When you run `mgit refresh`, MetaGit automatically discovers all author identities in your repositories and adds them to the `users` section:
+
+```bash
+$ mgit refresh
+Refreshing repository states...
+  ✓ 📁 backend    1 branches, 3 commits analyzed
+  ✓ 📁 frontend   1 branches, 2 commits analyzed
+
+Successfully refreshed 4 repositories
+Added 4 new author aliases to .mgitconfig.json
+```
+
+This creates entries like:
+```json
+{
+  "users": {
+    "Alice Johnson": ["alice@example.com"],
+    "Bob Smith": ["bob.smith@company.com"],
+    "Charlie Brown": ["charlie@dev.com"]
+  }
+}
+```
+
+#### Manual Normalization
+
+After auto-discovery, you can manually edit the configuration to group multiple identities:
+
+```json
+{
+  "users": {
+    "John": [
+      "John Crammer",
+      "JC",
+      "john.crammer@company.com",
+      "jc@personal.com"
+    ],
+    "Alice": [
+      "Alice Smith",
+      "Alice Johnson",
+      "alice@example.com",
+      "alice.johnson@company.com"
+    ]
+  }
+}
+```
+
+**How it works**:
+1. The key (`"John"`) is the canonical username that will be displayed
+2. The array contains all aliases (names and emails) for that person
+3. Matching is case-insensitive
+4. Both author names and email addresses are checked
+
+#### Example Use Case
+
+**Before normalization** - `mgit status -a` shows:
+```
+📁 REPOSITORY     ● COMMITS  👤 OWNER
+  backend         5          John Crammer et al
+  frontend        3          JC et al
+```
+
+**Configuration**:
+```json
+{
+  "users": {
+    "John": ["John Crammer", "JC", "john.crammer@company.com", "jc@personal.com"]
+  }
+}
+```
+
+**After normalization** - `mgit refresh && mgit status -a` shows:
+```
+📁 REPOSITORY     ● COMMITS  👤 OWNER
+  backend         8          John et al
+  frontend        8          John et al
+```
+
+Now all commits by "John Crammer" and "JC" are correctly attributed to "John" and counted together.
+
 ### Global Configuration
 
-You can set user-wide defaults in `~/.mgitconfig.json` (in your home directory). This is especially useful for shell preferences that you want to use across all projects.
+You can set user-wide defaults in `~/.mgitconfig.json` (in your home directory). This is especially useful for shell preferences, credentials, and user normalizations that you want to use across all projects.
 
 **Create global configuration**:
 
@@ -539,6 +784,13 @@ cat > ~/.mgitconfig.json << 'EOF'
   "shells": {
     "sh": "bash",
     "powershell": "pwsh"
+  },
+  "credentials": {
+    "github.com": "~/.ssh/id_ed25519",
+    "gitlab.com": "~/.ssh/id_rsa"
+  },
+  "users": {
+    "John": ["John Doe", "JD", "john@example.com", "john.doe@company.com"]
   }
 }
 EOF
@@ -549,6 +801,9 @@ EOF
   "shells": {
     "sh": "C:\\Program Files\\Git\\bin\\bash.exe",
     "powershell": "C:\\Program Files\\PowerShell\\7\\pwsh.exe"
+  },
+  "credentials": {
+    "github.com": "~/.ssh/id_ed25519"
   }
 }
 '@ | Out-File -FilePath "$env:USERPROFILE\.mgitconfig.json" -Encoding utf8
