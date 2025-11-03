@@ -1,10 +1,93 @@
 use anyhow::{Context, Result};
 use chrono::{DateTime, Utc};
-use git2::{BranchType, Oid, Repository};
+use git2::{BranchType, Cred, FetchOptions, Oid, PushOptions, RemoteCallbacks, Repository};
 use std::collections::HashMap;
-use std::path::Path;
+use std::env;
+use std::path::{Path, PathBuf};
 
 use crate::models::{BranchInfo, RepoState};
+
+/// Extract hostname from git URL (e.g., "git@github.com:..." -> "github.com")
+fn extract_hostname(url: &str) -> Option<String> {
+    // Handle SSH URLs like git@github.com:org/repo.git
+    if url.starts_with("git@") || url.starts_with("ssh://") {
+        let without_prefix = url.strip_prefix("git@").unwrap_or(url);
+        let without_prefix = without_prefix.strip_prefix("ssh://").unwrap_or(without_prefix);
+
+        if let Some(colon_pos) = without_prefix.find(':') {
+            return Some(without_prefix[..colon_pos].to_string());
+        } else if let Some(slash_pos) = without_prefix.find('/') {
+            return Some(without_prefix[..slash_pos].to_string());
+        }
+    }
+
+    // Handle HTTPS URLs
+    if url.starts_with("https://") || url.starts_with("http://") {
+        let without_protocol = url.strip_prefix("https://")
+            .or_else(|| url.strip_prefix("http://"))
+            .unwrap_or(url);
+
+        if let Some(slash_pos) = without_protocol.find('/') {
+            return Some(without_protocol[..slash_pos].to_string());
+        }
+    }
+
+    None
+}
+
+/// Expand ~ in path to home directory
+fn expand_home(path: &str) -> PathBuf {
+    if path.starts_with("~/") || path == "~" {
+        let home = env::var("HOME")
+            .or_else(|_| env::var("USERPROFILE"))
+            .unwrap_or_else(|_| ".".to_string());
+
+        PathBuf::from(home).join(&path[2..])
+    } else {
+        PathBuf::from(path)
+    }
+}
+
+/// Create remote callbacks with SSH authentication support
+fn create_remote_callbacks<'a>(
+    credentials: &'a HashMap<String, String>,
+    remote_url: &'a str,
+) -> RemoteCallbacks<'a> {
+    let mut callbacks = RemoteCallbacks::new();
+
+    callbacks.credentials(move |_url, username_from_url, _allowed_types| {
+        let username = username_from_url.unwrap_or("git");
+
+        // Try SSH agent first
+        if let Ok(cred) = Cred::ssh_key_from_agent(username) {
+            return Ok(cred);
+        }
+
+        // Extract hostname from URL and look up configured credentials
+        if let Some(hostname) = extract_hostname(remote_url) {
+            if let Some(key_path) = credentials.get(&hostname) {
+                let private_key = expand_home(key_path);
+                let public_key = PathBuf::from(format!("{}.pub", private_key.display()));
+
+                if private_key.exists() {
+                    if let Ok(cred) = Cred::ssh_key(
+                        username,
+                        Some(&public_key),
+                        &private_key,
+                        None,
+                    ) {
+                        return Ok(cred);
+                    }
+                }
+            }
+        }
+
+        // As fallback, try default credential
+        Cred::default()
+    });
+
+    callbacks
+}
 
 pub fn get_repo_state(repo_path: &Path, repo_name: &str) -> Result<RepoState> {
     let repo = Repository::open(repo_path)
@@ -207,9 +290,27 @@ pub fn pull_repo(repo_path: &Path) -> Result<String> {
     let head = repo.head()?;
     let branch_name = head.shorthand().unwrap_or("HEAD");
 
+    // Load config for credentials
+    use crate::models::Config;
+    let config = Config::load(".mgitconfig.json").unwrap_or_else(|_| Config {
+        repositories: Vec::new(),
+        tasks: Vec::new(),
+        shells: Default::default(),
+        credentials: HashMap::new(),
+    });
+
+    // Get remote URL
+    let remote = repo.find_remote("origin")?;
+    let remote_url = remote.url().unwrap_or("");
+
+    // Setup SSH callbacks for fetch
+    let callbacks = create_remote_callbacks(&config.credentials, remote_url);
+    let mut fetch_options = FetchOptions::new();
+    fetch_options.remote_callbacks(callbacks);
+
     // Fetch
     let mut remote = repo.find_remote("origin")?;
-    remote.fetch(&[branch_name], None, None)?;
+    remote.fetch(&[branch_name], Some(&mut fetch_options), None)?;
 
     // Get fetch head
     let fetch_head = repo.find_reference("FETCH_HEAD")?;
@@ -241,10 +342,28 @@ pub fn push_repo(repo_path: &Path) -> Result<String> {
     let head = repo.head()?;
     let branch_name = head.shorthand().unwrap_or("HEAD");
 
+    // Load config for credentials
+    use crate::models::Config;
+    let config = Config::load(".mgitconfig.json").unwrap_or_else(|_| Config {
+        repositories: Vec::new(),
+        tasks: Vec::new(),
+        shells: Default::default(),
+        credentials: HashMap::new(),
+    });
+
+    // Get remote URL
+    let remote = repo.find_remote("origin")?;
+    let remote_url = remote.url().unwrap_or("");
+
+    // Setup SSH callbacks for push
+    let callbacks = create_remote_callbacks(&config.credentials, remote_url);
+    let mut push_options = PushOptions::new();
+    push_options.remote_callbacks(callbacks);
+
     let mut remote = repo.find_remote("origin")?;
     let refspec = format!("refs/heads/{}", branch_name);
 
-    remote.push(&[&refspec], None)?;
+    remote.push(&[&refspec], Some(&mut push_options))?;
 
     Ok(format!("Pushed {}", branch_name))
 }

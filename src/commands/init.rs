@@ -1,4 +1,5 @@
 use anyhow::Result;
+use std::collections::HashMap;
 use std::fs;
 use std::path::Path;
 use crate::commands::refresh_command;
@@ -53,6 +54,7 @@ pub fn init_command() -> Result<()> {
         repositories,
         tasks: Vec::new(),
         shells: Default::default(),
+        credentials: HashMap::new(),
     };
 
     config.save(config_path)?;

@@ -1,4 +1,5 @@
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Config {
@@ -7,6 +8,9 @@ pub struct Config {
     pub tasks: Vec<Task>,
     #[serde(default)]
     pub shells: ShellConfig,
+    /// SSH credentials: maps hostname (e.g., "github.com") to SSH private key path (e.g., "~/.ssh/id_github")
+    #[serde(default)]
+    pub credentials: HashMap<String, String>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -127,7 +131,7 @@ impl Config {
             None
         };
 
-        // Merge configurations: local takes precedence, but use global shells if local doesn't specify
+        // Merge configurations: local takes precedence, but use global shells and credentials if local doesn't specify
         match (local_config, global_config) {
             (Some(mut local), Some(global)) => {
                 // If local config has default shells, use global shells
@@ -139,6 +143,10 @@ impl Config {
                 }
                 if local.shells.powershell == "powershell" && global.shells.powershell != "powershell" {
                     local.shells.powershell = global.shells.powershell;
+                }
+                // Merge credentials from global config (global credentials as fallback)
+                for (host, key_path) in global.credentials {
+                    local.credentials.entry(host).or_insert(key_path);
                 }
                 Ok(local)
             }
