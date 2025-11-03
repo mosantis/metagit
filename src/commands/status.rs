@@ -4,7 +4,7 @@ use std::path::Path;
 
 use crate::db::StateDb;
 use crate::models::Config;
-use crate::utils::{format_relative_time, get_repo_state};
+use crate::utils::{format_relative_time, get_repo_state, icons};
 
 pub fn status_command(detailed: bool) -> Result<()> {
     let config = Config::load(".mgit_config.json")?;
@@ -36,15 +36,20 @@ pub fn status_command(detailed: bool) -> Result<()> {
     // Sort by last updated (most recent first)
     all_states.sort_by(|a, b| b.last_updated.cmp(&a.last_updated));
 
-    // Print header
-    println!(
-        "{:<30} {:<40} {}",
-        "REPOSITORY".bold(),
-        "BRANCH".bold(),
-        "UPDATED".bold()
-    );
-
     if detailed {
+        // Print header for detailed view with OWNER column
+        println!(
+            "{} {:<28} {} {:<15} {} {:<20} {} {}",
+            icons::files::folder(),
+            "REPOSITORY".bold(),
+            icons::git::owner(),
+            "OWNER".bold(),
+            icons::status::info(),
+            "UPDATED".bold(),
+            icons::git::branch(),
+            "BRANCH".bold()
+        );
+
         // Detailed view: show all branches
         for state in all_states {
             for (idx, branch) in state.branches.iter().enumerate() {
@@ -55,30 +60,39 @@ pub fn status_command(detailed: bool) -> Result<()> {
                 };
 
                 let branch_display = if branch.name == state.current_branch {
-                    format!("{}:{}", branch.owner, branch.name)
-                        .green()
-                        .to_string()
+                    branch.name.green().to_string()
                 } else {
-                    format!("{}:{}", branch.owner, branch.name)
+                    branch.name.to_string()
                 };
 
                 println!(
-                    "{:<30} {:<40} {}",
+                    "  {:<28} {:<15} {:<20} {}",
                     repo_name,
-                    branch_display,
-                    format_relative_time(branch.last_updated)
+                    branch.owner,
+                    format_relative_time(branch.last_updated),
+                    branch_display
                 );
             }
         }
     } else {
+        // Print header for simple view without OWNER column
+        println!(
+            "{} {:<28} {} {:<20} {} {}",
+            icons::files::folder(),
+            "REPOSITORY".bold(),
+            icons::status::info(),
+            "UPDATED".bold(),
+            icons::git::branch(),
+            "BRANCH".bold()
+        );
         // Simple view: show only current branch
         for state in all_states {
             let branch_display = state.current_branch.green().to_string();
             println!(
-                "{:<30} {:<40} {}",
+                "  {:<28} {:<20} {}",
                 state.name,
-                branch_display,
-                format_relative_time(state.last_updated)
+                format_relative_time(state.last_updated),
+                branch_display
             );
         }
     }

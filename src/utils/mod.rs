@@ -1,4 +1,5 @@
 pub mod git;
+pub mod icons;
 pub mod script;
 pub mod time;
 

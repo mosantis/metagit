@@ -9,7 +9,7 @@ use std::thread;
 use std::time::Duration;
 
 use crate::models::Config;
-use crate::utils::{execute_script, ScriptType};
+use crate::utils::{execute_script, icons, ScriptType};
 
 #[derive(Clone)]
 enum TaskStatus {
@@ -65,14 +65,26 @@ pub fn run_command(task_name: &str) -> Result<()> {
                 let (status_text, color_fn): (String, fn(&str) -> ColoredString) = match status {
                     TaskStatus::Waiting => {
                         all_done = false;
-                        ("waiting...".to_string(), |s| s.yellow())
+                        (format!("{} waiting...", icons::status::waiting()), |s| {
+                            s.yellow()
+                        })
                     }
                     TaskStatus::Running => {
                         all_done = false;
-                        ("running...".to_string(), |s| s.blue())
+                        (format!("{} running...", icons::status::running()), |s| {
+                            s.blue()
+                        })
                     }
-                    TaskStatus::Completed => ("completed.".to_string(), |s| s.green()),
-                    TaskStatus::Failed(err) => (format!("failed: {}", err), |s| s.red()),
+                    TaskStatus::Completed => {
+                        (format!("{} completed", icons::status::success()), |s| {
+                            s.green()
+                        })
+                    }
+                    TaskStatus::Failed(err) => {
+                        (format!("{} failed: {}", icons::status::error(), err), |s| {
+                            s.red()
+                        })
+                    }
                 };
 
                 let args_display = step.args.join(" ");
@@ -83,7 +95,7 @@ pub fn run_command(task_name: &str) -> Result<()> {
                 };
 
                 println!(
-                    "  {:<20} {:<20} [{}]",
+                    "  {:<20} {:<28} {}",
                     step.repo,
                     color_fn(&status_text),
                     cmd_display.dimmed()

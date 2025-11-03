@@ -9,6 +9,7 @@ A command-line tool written in Rust to enhance git functionality when dealing wi
 - **Task execution**: Define and execute custom tasks across multiple repositories
 - **Local state caching**: Uses an embedded database (sled) to cache repository state
 - **Detailed status views**: See all branches and their last update times
+- **Beautiful icons**: Support for both standard Unicode and Nerd Font icons (see [ICONS.md](ICONS.md))
 
 ## Installation
 
