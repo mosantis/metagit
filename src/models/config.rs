@@ -5,6 +5,43 @@ pub struct Config {
     pub repositories: Vec<Repository>,
     #[serde(default)]
     pub tasks: Vec<Task>,
+    #[serde(default)]
+    pub shells: ShellConfig,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct ShellConfig {
+    /// Shell executable to use for .sh scripts (default: "sh" on Unix, "bash" if available)
+    #[serde(default = "default_shell")]
+    pub sh: String,
+    /// Command prompt executable to use for .bat/.cmd scripts (default: "cmd")
+    #[serde(default = "default_cmd")]
+    pub cmd: String,
+    /// PowerShell executable to use for .ps1 scripts (default: "powershell")
+    #[serde(default = "default_powershell")]
+    pub powershell: String,
+}
+
+fn default_shell() -> String {
+    "sh".to_string()
+}
+
+fn default_cmd() -> String {
+    "cmd".to_string()
+}
+
+fn default_powershell() -> String {
+    "powershell".to_string()
+}
+
+impl Default for ShellConfig {
+    fn default() -> Self {
+        Self {
+            sh: default_shell(),
+            cmd: default_cmd(),
+            powershell: default_powershell(),
+        }
+    }
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]

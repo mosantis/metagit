@@ -22,6 +22,7 @@ A command-line tool written in Rust to enhance git functionality when dealing wi
 - **Git operations**: Pull, push, sync, and check status across all repositories
 - **Task execution**: Define and execute custom tasks across multiple repositories with real-time progress
 - **Cross-platform support**: Platform-specific task steps for Windows, Linux, and macOS
+- **Configurable shells**: Choose your preferred shell executables (bash, zsh, pwsh, etc.)
 - **Local state caching**: Uses an embedded database (sled) to cache repository state
 - **Detailed status views**: See all branches and their last update times
 - **Beautiful icons and visual feedback**:
@@ -29,6 +30,7 @@ A command-line tool written in Rust to enhance git functionality when dealing wi
   - Enhanced Nerd Font icons for a premium terminal experience
   - Color-coded output for better readability
   - Flicker-free progress updates
+  - Unicode-aware column alignment
 - **Smart script type inference**: Automatically detects script types from extensions (.bat, .ps1, .sh, etc.)
 - **Error handling**: Post-mortem logs for failed tasks with captured output
 - **Ad-hoc commands**: Execute arbitrary commands in addition to script files
@@ -83,6 +85,8 @@ mgit init
 ```
 
 This will detect all git repositories in subdirectories and create a configuration file.
+
+You can also start with the example configuration file provided in `example-config.json` and customize it to your needs.
 
 ### Status
 
@@ -385,6 +389,11 @@ The `.mgit_config.json` file structure:
 
 ```json
 {
+  "shells": {
+    "sh": "bash",
+    "cmd": "cmd",
+    "powershell": "pwsh"
+  },
   "repositories": [
     {
       "name": "repository-directory-name",
@@ -410,6 +419,11 @@ The `.mgit_config.json` file structure:
 
 ### Field Descriptions
 
+**Shell Configuration** (optional):
+- `sh`: Shell executable for `.sh` scripts - defaults to `"sh"` (use `"bash"`, `"zsh"`, etc. if needed)
+- `cmd`: Command prompt executable for `.bat`/`.cmd` scripts - defaults to `"cmd"`
+- `powershell`: PowerShell executable for `.ps1` scripts - defaults to `"powershell"` (use `"pwsh"` for PowerShell Core)
+
 **Repository Fields**:
 - `name`: Directory name of the repository
 - `url`: Git remote URL
@@ -420,6 +434,84 @@ The `.mgit_config.json` file structure:
 - `repo`: Repository name (must match a repository's name)
 - `cmd`: Script file or command to execute
 - `args`: Array of arguments to pass
+
+### Shell Configuration Examples
+
+You can specify shells either by name (if in PATH) or by absolute path for more control.
+
+**Why use full paths?**
+- Ensure a specific shell version is used
+- Avoid conflicts when multiple versions are installed
+- Provide explicit configuration for CI/CD environments
+- Work around PATH issues in restricted environments
+
+**Using PowerShell Core (pwsh) instead of Windows PowerShell**:
+```json
+{
+  "shells": {
+    "powershell": "pwsh"
+  }
+}
+```
+
+**Using bash on Linux/macOS**:
+```json
+{
+  "shells": {
+    "sh": "bash"
+  }
+}
+```
+
+**Using zsh on macOS**:
+```json
+{
+  "shells": {
+    "sh": "zsh"
+  }
+}
+```
+
+**Full paths for specific shell versions (Windows)**:
+```json
+{
+  "shells": {
+    "sh": "C:\\Program Files\\Git\\bin\\bash.exe",
+    "cmd": "C:\\Windows\\System32\\cmd.exe",
+    "powershell": "C:\\Program Files\\PowerShell\\7\\pwsh.exe"
+  }
+}
+```
+
+**Full paths on Linux**:
+```json
+{
+  "shells": {
+    "sh": "/bin/bash",
+    "powershell": "/usr/bin/pwsh"
+  }
+}
+```
+
+**Full paths on macOS (Homebrew installations)**:
+```json
+{
+  "shells": {
+    "sh": "/opt/homebrew/bin/bash",
+    "powershell": "/opt/homebrew/bin/pwsh"
+  }
+}
+```
+
+**Mixed approach (names and paths)**:
+```json
+{
+  "shells": {
+    "sh": "bash",
+    "powershell": "C:\\Program Files\\PowerShell\\7\\pwsh.exe"
+  }
+}
+```
 
 ## Architecture
 
@@ -530,50 +622,6 @@ mgit run missing_script       # Test missing file error
 mgit run cross_platform_build # Platform-specific steps
 mgit run adhoc_commands       # Ad-hoc command execution
 ```
-
-### Performance
-
-- **Init**: Fast (< 1 second for multiple repos)
-- **Status**: Fast (< 1 second, uses cached data)
-- **Tasks**: Real-time progress with minimal overhead
-- **Database**: Efficient caching avoids re-scanning
-
-## Key Features Implemented
-
-### ✅ Completed Features
-
-1. **Core Git Operations**
-   - Repository discovery and initialization
-   - Status reporting (simple and detailed views)
-   - Pull, push, and sync operations
-   - Uses git2 library for performance
-
-2. **Task Execution System**
-   - Multi-step tasks with dependencies
-   - Real-time progress display
-   - Support for multiple script types
-   - Ad-hoc command execution
-   - Platform-specific steps
-   - Post-mortem error logs
-
-3. **User Experience**
-   - Beautiful colored output
-   - Icon support with Nerd Font detection
-   - Flicker-free display updates
-   - Clear error messages
-   - Relative time formatting
-
-4. **Cross-Platform Support**
-   - Windows, Linux, macOS
-   - Platform-specific task steps
-   - Auto-detection of script types
-   - Proper path handling per platform
-
-5. **Performance & Reliability**
-   - Embedded database for caching
-   - Change-based display updates
-   - Captured output for failed tasks
-   - Proper process handling
 
 ## Troubleshooting
 

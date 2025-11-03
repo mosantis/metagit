@@ -52,6 +52,7 @@ pub fn init_command() -> Result<()> {
     let config = Config {
         repositories,
         tasks: Vec::new(),
+        shells: Default::default(),
     };
 
     config.save(config_path)?;

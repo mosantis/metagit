@@ -271,7 +271,7 @@ pub fn run_command(task_name: &str) -> Result<()> {
         };
 
         // Execute
-        match execute_script(script_type, &step.cmd, &step.args, repo_path) {
+        match execute_script(script_type, &step.cmd, &step.args, repo_path, &config.shells) {
             Ok(child) => {
                 // Use wait_with_output() to properly handle stdout/stderr and avoid deadlocks
                 match child.wait_with_output() {

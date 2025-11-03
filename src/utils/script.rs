@@ -2,6 +2,8 @@ use anyhow::Result;
 use std::path::Path;
 use std::process::{Command, Stdio};
 
+use crate::models::ShellConfig;
+
 pub enum ScriptType {
     Shell,
     Batch,
@@ -34,6 +36,7 @@ pub fn execute_script(
     script_path: &str,
     args: &[String],
     working_dir: &Path,
+    shell_config: &ShellConfig,
 ) -> Result<std::process::Child> {
     let mut cmd = match script_type {
         ScriptType::Shell => {
@@ -41,12 +44,12 @@ pub fn execute_script(
             let full_path = working_dir.join(script_path);
             if full_path.exists() {
                 // It's a file, execute it directly
-                let mut c = Command::new("sh");
+                let mut c = Command::new(&shell_config.sh);
                 c.arg(script_path);
                 c
             } else {
                 // It's a command, use sh -c to execute
-                let mut c = Command::new("sh");
+                let mut c = Command::new(&shell_config.sh);
                 c.arg("-c");
                 // Build the full command with args
                 let mut full_cmd = script_path.to_string();
@@ -59,7 +62,7 @@ pub fn execute_script(
             }
         }
         ScriptType::Batch => {
-            let mut c = Command::new("cmd");
+            let mut c = Command::new(&shell_config.cmd);
             let script_in_workdir = working_dir.join(script_path);
 
             if script_in_workdir.exists() {
@@ -79,7 +82,7 @@ pub fn execute_script(
             c
         }
         ScriptType::PowerShell => {
-            let mut c = Command::new("powershell");
+            let mut c = Command::new(&shell_config.powershell);
             c.arg("-ExecutionPolicy").arg("Bypass");
 
             let script_in_workdir = working_dir.join(script_path);
