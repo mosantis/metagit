@@ -25,7 +25,10 @@
       "Bash(NERD_FONT=1 ../target/release/mgit.exe status:*)",
       "Bash(./target/release/mgit.exe run:*)",
       "Bash(../target/release/mgit.exe run)",
-      "Bash(../target/release/mgit.exe run:*)"
+      "Bash(../target/release/mgit.exe run:*)",
+      "Bash(tree:*)",
+      "Bash(../target/release/mgit.exe init:*)",
+      "Bash(../target/release/mgit.exe refresh:*)"
     ],
     "deny": [],
     "ask": []

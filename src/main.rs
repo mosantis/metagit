@@ -23,9 +23,13 @@ enum Commands {
 
     /// Show status of all repositories
     Status {
-        /// Show detailed status including all branches
+        /// Show detailed status (all branches with activity in last 30 days)
         #[arg(short, long)]
         detailed: bool,
+
+        /// Show all branches regardless of activity
+        #[arg(short, long)]
+        all: bool,
     },
 
     /// Pull all repositories
@@ -36,6 +40,9 @@ enum Commands {
 
     /// Sync (pull & push) all repositories
     Sync,
+
+    /// Refresh repository states and collect commit statistics
+    Refresh,
 
     /// Run a task defined in .mgitconfig.json (run without task name to list available tasks)
     Run {
@@ -53,10 +60,11 @@ fn main() -> Result<()> {
 
     match cli.command {
         Commands::Init => init_command()?,
-        Commands::Status { detailed } => status_command(detailed)?,
+        Commands::Status { detailed, all } => status_command(detailed, all)?,
         Commands::Pull => pull_command()?,
         Commands::Push => push_command()?,
         Commands::Sync => sync_command()?,
+        Commands::Refresh => refresh_command()?,
         Commands::Run { task_name, detailed } => run_command(task_name.as_deref(), detailed)?,
     }
 

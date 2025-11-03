@@ -1,14 +1,18 @@
 use anyhow::Result;
+use chrono::{Duration, Utc};
 use colored::*;
 use std::path::Path;
 
 use crate::db::StateDb;
 use crate::models::Config;
-use crate::utils::{format_relative_time, get_repo_state, icons};
+use crate::utils::{format_relative_time, get_current_user, get_repo_state, icons};
 
-pub fn status_command(detailed: bool) -> Result<()> {
+pub fn status_command(detailed: bool, all: bool) -> Result<()> {
     let config = Config::load(".mgitconfig.json")?;
     let db = StateDb::open(".mgitdb")?;
+
+    // Get current user for filtering
+    let current_user = get_current_user().ok();
 
     let mut all_states = Vec::new();
 
@@ -21,20 +25,59 @@ pub fn status_command(detailed: bool) -> Result<()> {
             continue;
         }
 
-        match get_repo_state(repo_path, &repo_config.name) {
-            Ok(state) => {
-                // Save to database
-                let _ = db.save_repo_state(&state);
-                all_states.push(state);
+        // Try to load from database first (will have better ownership info if refreshed)
+        let state = match db.get_repo_state(&repo_config.name) {
+            Ok(Some(db_state)) => {
+                // Use database state if available
+                db_state
             }
-            Err(e) => {
-                eprintln!("Error reading repository '{}': {}", repo_config.name, e);
+            _ => {
+                // Fall back to reading from git if no database entry
+                match get_repo_state(repo_path, &repo_config.name) {
+                    Ok(state) => {
+                        // Save to database
+                        let _ = db.save_repo_state(&state);
+                        state
+                    }
+                    Err(e) => {
+                        eprintln!("Error reading repository '{}': {}", repo_config.name, e);
+                        continue;
+                    }
+                }
             }
-        }
+        };
+
+        all_states.push(state);
     }
 
     // Sort by last updated (most recent first)
     all_states.sort_by(|a, b| b.last_updated.cmp(&a.last_updated));
+
+    // Filter branches based on flags
+    if !all {
+        let thirty_days_ago = Utc::now() - Duration::days(30);
+
+        if detailed {
+            // -d flag: show all branches with activity in last 30 days
+            for state in all_states.iter_mut() {
+                state.branches.retain(|b| b.last_updated > thirty_days_ago);
+            }
+            // Remove repositories with no branches after filtering
+            all_states.retain(|state| !state.branches.is_empty());
+        } else if let Some(ref user) = current_user {
+            // Default (simple view): show only repos where current user has worked on current branch
+            all_states.retain(|state| {
+                // Find the current branch
+                if let Some(current_branch) = state.branches.iter().find(|b| b.name == state.current_branch) {
+                    // Check if user has commits on the current branch
+                    current_branch.commit_stats.contains_key(user)
+                        && current_branch.commit_stats.get(user).copied().unwrap_or(0) > 0
+                } else {
+                    false
+                }
+            });
+        }
+    }
 
     if detailed {
         // Get icons for header

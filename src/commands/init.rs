@@ -1,6 +1,7 @@
 use anyhow::Result;
 use std::fs;
 use std::path::Path;
+use crate::commands::refresh_command;
 use crate::models::{Config, Repository};
 use crate::utils::{get_repo_url, is_git_repo};
 
@@ -56,6 +57,12 @@ pub fn init_command() -> Result<()> {
 
     config.save(config_path)?;
     println!("Configuration saved to {}", config_path);
+
+    // Automatically refresh repository states if we found any repositories
+    if !config.repositories.is_empty() {
+        println!();
+        refresh_command()?;
+    }
 
     Ok(())
 }
