@@ -85,18 +85,33 @@ fn expand_home(path: &str) -> PathBuf {
 
 /// Check if SSH agent is running
 fn is_ssh_agent_running() -> bool {
+    // Check for SSH_AUTH_SOCK environment variable (works on all platforms)
+    if env::var("SSH_AUTH_SOCK").is_ok() {
+        return true;
+    }
+
     #[cfg(target_os = "windows")]
     {
+        // On Windows, also check if ssh-agent service is running
+        // Or if Git's ssh-agent is available
+        if env::var("GIT_SSH").is_ok() || env::var("SSH_AGENT_PID").is_ok() {
+            return true;
+        }
+
+        // Check if Pageant is running (PuTTY's SSH agent)
         Command::new("cmd")
-            .args(&["/C", "where", "ssh-agent"])
+            .args(&["/C", "tasklist", "/FI", "IMAGENAME eq pageant.exe"])
             .output()
-            .map(|o| o.status.success())
+            .map(|o| {
+                let output = String::from_utf8_lossy(&o.stdout);
+                output.contains("pageant.exe")
+            })
             .unwrap_or(false)
     }
 
     #[cfg(not(target_os = "windows"))]
     {
-        env::var("SSH_AUTH_SOCK").is_ok()
+        false
     }
 }
 
@@ -111,10 +126,29 @@ fn create_remote_callbacks<'a>(
     debug_log!(debug, "Setting up SSH authentication for: {}", remote_url);
 
     if debug {
+        // Check SSH agent status
         if is_ssh_agent_running() {
             debug_log!(debug, "SSH agent: RUNNING");
         } else {
             debug_log!(debug, "SSH agent: NOT DETECTED");
+        }
+
+        // Show environment variables
+        if let Ok(sock) = env::var("SSH_AUTH_SOCK") {
+            debug_log!(debug, "SSH_AUTH_SOCK: {}", sock);
+        } else {
+            debug_log!(debug, "SSH_AUTH_SOCK: Not set");
+        }
+
+        if let Ok(git_ssh) = env::var("GIT_SSH") {
+            debug_log!(debug, "GIT_SSH: {}", git_ssh);
+        }
+
+        // Show configured credentials
+        if credentials.is_empty() {
+            debug_log!(debug, "No credentials configured in .mgitconfig.json");
+        } else {
+            debug_log!(debug, "Configured credentials for: {:?}", credentials.keys().collect::<Vec<_>>());
         }
     }
 
@@ -496,10 +530,31 @@ pub fn pull_repo(repo_path: &Path, debug: bool) -> Result<String> {
 
     debug_log!(debug, "Remote URL: {}", remote_url);
 
+    // Check if we have proper SSH setup
+    if debug && remote_url.starts_with("git@") {
+        let hostname = extract_hostname(remote_url);
+        let has_ssh_agent = is_ssh_agent_running();
+        let has_configured_key = hostname.as_ref().and_then(|h| config.credentials.get(h)).is_some();
+
+        if !has_ssh_agent && !has_configured_key {
+            debug_log!(debug, "⚠️  WARNING: SSH URL detected but no authentication method available!");
+            debug_log!(debug, "   Solutions:");
+            debug_log!(debug, "   1. Start SSH agent and add your key: ssh-add ~/.ssh/id_rsa");
+            if let Some(h) = hostname {
+                debug_log!(debug, "   2. Configure credentials in .mgitconfig.json:");
+                debug_log!(debug, "      \"credentials\": {{");
+                debug_log!(debug, "        \"{}\": \"~/.ssh/id_rsa\"", h);
+                debug_log!(debug, "      }}");
+            }
+        }
+    }
+
     // Setup SSH callbacks for fetch
     let callbacks = create_remote_callbacks(&config.credentials, remote_url, debug);
     let mut fetch_options = FetchOptions::new();
     fetch_options.remote_callbacks(callbacks);
+
+    debug_log!(debug, "Starting fetch operation...");
 
     // Fetch
     let mut remote = repo.find_remote("origin")?;
@@ -554,10 +609,31 @@ pub fn push_repo(repo_path: &Path, debug: bool) -> Result<String> {
 
     debug_log!(debug, "Remote URL: {}", remote_url);
 
+    // Check if we have proper SSH setup
+    if debug && remote_url.starts_with("git@") {
+        let hostname = extract_hostname(remote_url);
+        let has_ssh_agent = is_ssh_agent_running();
+        let has_configured_key = hostname.as_ref().and_then(|h| config.credentials.get(h)).is_some();
+
+        if !has_ssh_agent && !has_configured_key {
+            debug_log!(debug, "⚠️  WARNING: SSH URL detected but no authentication method available!");
+            debug_log!(debug, "   Solutions:");
+            debug_log!(debug, "   1. Start SSH agent and add your key: ssh-add ~/.ssh/id_rsa");
+            if let Some(h) = hostname {
+                debug_log!(debug, "   2. Configure credentials in .mgitconfig.json:");
+                debug_log!(debug, "      \"credentials\": {{");
+                debug_log!(debug, "        \"{}\": \"~/.ssh/id_rsa\"", h);
+                debug_log!(debug, "      }}");
+            }
+        }
+    }
+
     // Setup SSH callbacks for push
     let callbacks = create_remote_callbacks(&config.credentials, remote_url, debug);
     let mut push_options = PushOptions::new();
     push_options.remote_callbacks(callbacks);
+
+    debug_log!(debug, "Starting push operation...");
 
     let mut remote = repo.find_remote("origin")?;
     let refspec = format!("refs/heads/{}", branch_name);

@@ -243,6 +243,8 @@ Already up-to-date
 - Checking if SSH agent is running
 - Understanding which authentication method is being used
 
+**Note**: MetaGit uses vendored libssh2 and does **not** read `~/.ssh/config`. Use SSH agent or configure credentials in `.mgitconfig.json`. See [SSH Credentials Configuration](#ssh-credentials-configuration) for details.
+
 ## Task Execution
 
 Define tasks in `.mgitconfig.json`:
@@ -686,6 +688,57 @@ MetaGit supports SSH authentication for private repositories using the `credenti
 2. Looks up the hostname in the `credentials` map
 3. Uses the specified SSH private key for authentication
 4. Falls back to SSH agent if no specific key is configured
+
+#### Important: ~/.ssh/config Support
+
+**MetaGit uses vendored libssh2 which does NOT read `~/.ssh/config`**. This means SSH config features like Host aliases, IdentityFile per host, ProxyJump, etc. are not automatically applied.
+
+**Workaround options**:
+
+**Option 1: Use SSH Agent** (Recommended)
+```bash
+# Start SSH agent and add your key
+eval "$(ssh-agent -s)"
+ssh-add ~/.ssh/id_rsa
+
+# Now mgit will use the agent
+mgit pull
+```
+
+The SSH agent approach works with your `~/.ssh/config` because you add keys manually, and those keys can be configured in your SSH config.
+
+**Option 2: Explicitly Configure Keys in .mgitconfig.json**
+
+Instead of relying on SSH config, map each hostname to its key:
+```json
+{
+  "credentials": {
+    "github.com": "~/.ssh/id_github",
+    "work-gitlab.example.com": "~/.ssh/id_work"
+  }
+}
+```
+
+**Option 3: Build with System Libraries** (Advanced)
+
+For full `~/.ssh/config` support, you can build from source using system libraries instead of vendored ones. This requires libgit2 and openssl development libraries installed on your system:
+
+```bash
+# Install dependencies (Ubuntu/Debian)
+sudo apt-get install libgit2-dev libssl-dev
+
+# Edit Cargo.toml and change:
+# git2 = { version = "0.19", default-features = false, features = ["vendored-openssl", "vendored-libgit2", "ssh"] }
+# to:
+# git2 = "0.19"
+
+# Build
+cargo build --release
+```
+
+**Trade-offs**:
+- Vendored (default): ✅ Portable, ❌ No SSH config support
+- System libs: ✅ Full SSH config support, ❌ Requires system dependencies
 
 #### Examples
 
