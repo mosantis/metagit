@@ -8,8 +8,8 @@ use crate::models::Config;
 use crate::utils::{format_relative_time, get_repo_state, icons};
 
 pub fn status_command(detailed: bool) -> Result<()> {
-    let config = Config::load(".mgit_config.json")?;
-    let db = StateDb::open(".mgit_db")?;
+    let config = Config::load(".mgitconfig.json")?;
+    let db = StateDb::open(".mgitdb")?;
 
     let mut all_states = Vec::new();
 

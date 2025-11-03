@@ -6,7 +6,7 @@ use crate::models::Config;
 use crate::utils::{pull_repo, push_repo};
 
 pub fn sync_command() -> Result<()> {
-    let config = Config::load(".mgit_config.json")?;
+    let config = Config::load(".mgitconfig.json")?;
 
     println!("Syncing repositories (pull & push)...\n");
 

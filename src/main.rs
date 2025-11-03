@@ -18,7 +18,7 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Commands {
-    /// Initialize .mgit_config.json by scanning current directory
+    /// Initialize .mgitconfig.json by scanning current directory
     Init,
 
     /// Show status of all repositories
@@ -37,7 +37,7 @@ enum Commands {
     /// Sync (pull & push) all repositories
     Sync,
 
-    /// Run a task defined in .mgit_config.json
+    /// Run a task defined in .mgitconfig.json
     Run {
         /// Name of the task to run
         task_name: String,

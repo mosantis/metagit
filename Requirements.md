@@ -1,6 +1,6 @@
 # METAGIT
 
-I want to build a command line tool (metagit) in rust to enhance git functionality when dealing with multiple repositories without having to deal with git submodules. The user would provide a .mgit_config.json file in the current directory with the following structure:
+I want to build a command line tool (metagit) in rust to enhance git functionality when dealing with multiple repositories without having to deal with git submodules. The user would provide a .mgitconfig.json file in the current directory with the following structure:
 
 {
   "repositories": [
@@ -15,7 +15,7 @@ I want to build a command line tool (metagit) in rust to enhance git functionali
   ]
 }
 
-- The command "mgit init" can do an in-depth inspection of the repositories in the current directory and generate a .mgit_config.json file if it doesn't exist.
+- The command "mgit init" can do an in-depth inspection of the repositories in the current directory and generate a .mgitconfig.json file if it doesn't exist.
 
 ##GIT ENHANCEMENTS
 

@@ -97,7 +97,7 @@ impl TaskStep {
 impl Config {
     /// Get the path to the global configuration file in user's home directory
     pub fn global_config_path() -> Option<std::path::PathBuf> {
-        dirs::home_dir().map(|home| home.join(".mgit_config.json"))
+        dirs::home_dir().map(|home| home.join(".mgitconfig.json"))
     }
 
     /// Load configuration with fallback hierarchy:

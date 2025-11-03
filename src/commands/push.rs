@@ -6,7 +6,7 @@ use crate::models::Config;
 use crate::utils::push_repo;
 
 pub fn push_command() -> Result<()> {
-    let config = Config::load(".mgit_config.json")?;
+    let config = Config::load(".mgitconfig.json")?;
 
     println!("Pushing repositories...\n");
 

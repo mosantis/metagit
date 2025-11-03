@@ -23,7 +23,7 @@ A command-line tool written in Rust to enhance git functionality when dealing wi
 - **Task execution**: Define and execute custom tasks across multiple repositories with real-time progress
 - **Cross-platform support**: Platform-specific task steps for Windows, Linux, and macOS
 - **Configurable shells**: Choose your preferred shell executables (bash, zsh, pwsh, etc.)
-- **Global and project configuration**: Set user-wide defaults in `~/.mgit_config.json`, override per-project
+- **Global and project configuration**: Set user-wide defaults in `~/.mgitconfig.json`, override per-project
 - **Local state caching**: Uses an embedded database (sled) to cache repository state
 - **Detailed status views**: See all branches and their last update times
 - **Beautiful icons and visual feedback**:
@@ -79,7 +79,7 @@ mgit run build_all
 
 ### Initialize
 
-Scan the current directory for git repositories and create a `.mgit_config.json`:
+Scan the current directory for git repositories and create a `.mgitconfig.json`:
 
 ```bash
 mgit init
@@ -134,7 +134,7 @@ mgit sync
 
 ## Task Execution
 
-Define tasks in `.mgit_config.json`:
+Define tasks in `.mgitconfig.json`:
 
 ```json
 {
@@ -388,8 +388,8 @@ source ~/.bashrc  # or ~/.zshrc
 
 MetaGit supports two levels of configuration:
 
-1. **Global Configuration** (`~/.mgit_config.json`): User-wide defaults, especially for shell preferences
-2. **Project Configuration** (`.mgit_config.json`): Project-specific settings
+1. **Global Configuration** (`~/.mgitconfig.json`): User-wide defaults, especially for shell preferences
+2. **Project Configuration** (`.mgitconfig.json`): Project-specific settings
 
 The configuration hierarchy works as follows:
 - Project settings take precedence over global settings
@@ -398,7 +398,7 @@ The configuration hierarchy works as follows:
 
 ### Configuration File Structure
 
-The `.mgit_config.json` file structure (same for both global and project configs):
+The `.mgitconfig.json` file structure (same for both global and project configs):
 
 ```json
 {
@@ -528,13 +528,13 @@ You can specify shells either by name (if in PATH) or by absolute path for more 
 
 ### Global Configuration
 
-You can set user-wide defaults in `~/.mgit_config.json` (in your home directory). This is especially useful for shell preferences that you want to use across all projects.
+You can set user-wide defaults in `~/.mgitconfig.json` (in your home directory). This is especially useful for shell preferences that you want to use across all projects.
 
 **Create global configuration**:
 
 ```bash
 # Linux/macOS
-cat > ~/.mgit_config.json << 'EOF'
+cat > ~/.mgitconfig.json << 'EOF'
 {
   "shells": {
     "sh": "bash",
@@ -551,19 +551,19 @@ EOF
     "powershell": "C:\\Program Files\\PowerShell\\7\\pwsh.exe"
   }
 }
-'@ | Out-File -FilePath "$env:USERPROFILE\.mgit_config.json" -Encoding utf8
+'@ | Out-File -FilePath "$env:USERPROFILE\.mgitconfig.json" -Encoding utf8
 ```
 
 **How it works**:
 
-1. MetaGit first loads the project's `.mgit_config.json`
-2. If shell settings have default values, it looks for `~/.mgit_config.json`
+1. MetaGit first loads the project's `.mgitconfig.json`
+2. If shell settings have default values, it looks for `~/.mgitconfig.json`
 3. Global shell settings are applied if not overridden locally
 4. You can override global settings in any project by specifying shells locally
 
 **Example**:
 
-Global config (`~/.mgit_config.json`):
+Global config (`~/.mgitconfig.json`):
 ```json
 {
   "shells": {
@@ -572,7 +572,7 @@ Global config (`~/.mgit_config.json`):
 }
 ```
 
-Project config (`.mgit_config.json`):
+Project config (`.mgitconfig.json`):
 ```json
 {
   "repositories": [...],

@@ -3,8 +3,8 @@
 Cargo.lock
 
 # MetaGit runtime files
-.mgit_db/
-.mgit_config.json
+.mgitdb/
+.mgitconfig.json
 
 # Editor files
 .vscode/

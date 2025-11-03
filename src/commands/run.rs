@@ -27,7 +27,7 @@ impl TaskStatus {
 }
 
 pub fn run_command(task_name: &str) -> Result<()> {
-    let config = Config::load(".mgit_config.json")?;
+    let config = Config::load(".mgitconfig.json")?;
 
     // Find the task
     let task = config
