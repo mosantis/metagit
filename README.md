@@ -23,6 +23,7 @@ A command-line tool written in Rust to enhance git functionality when dealing wi
 - **Task execution**: Define and execute custom tasks across multiple repositories with real-time progress
 - **Cross-platform support**: Platform-specific task steps for Windows, Linux, and macOS
 - **Configurable shells**: Choose your preferred shell executables (bash, zsh, pwsh, etc.)
+- **Global and project configuration**: Set user-wide defaults in `~/.mgit_config.json`, override per-project
 - **Local state caching**: Uses an embedded database (sled) to cache repository state
 - **Detailed status views**: See all branches and their last update times
 - **Beautiful icons and visual feedback**:
@@ -98,9 +99,9 @@ mgit status
 
 Output:
 ```
-📁 REPOSITORY                   🕒 UPDATED              ⎇ BRANCH
-  repo1                        2 hours ago           main
-  repo2                        10 days ago           develop
+📁 REPOSITORY               🕒 UPDATED             ⎇ BRANCH
+   repo1                        2 hours ago           main
+   repo2                        10 days ago           develop
 ```
 
 For detailed status showing all branches:
@@ -111,11 +112,11 @@ mgit status -d
 
 Output:
 ```
-📁 REPOSITORY                   🕒 UPDATED              ⎇ BRANCH
-  repo1                        2 hours ago           me:main
-  repo1                        10/21/2005            andy:feature_5678_search_all
-  repo2                        3 weeks ago           me:main
-  repo2                        10 days ago           me:develop
+📁 REPOSITORY               🕒 UPDATED             ⎇ BRANCH
+   repo1                        2 hours ago           me:main
+   repo1                        10/21/2005            andy:feature_5678_search_all
+   repo2                        3 weeks ago           me:main
+   repo2                        10 days ago           me:develop
 ```
 
 ### Git Operations
@@ -383,9 +384,21 @@ source ~/.bashrc  # or ~/.zshrc
 
 ## Configuration
 
+### Configuration Hierarchy
+
+MetaGit supports two levels of configuration:
+
+1. **Global Configuration** (`~/.mgit_config.json`): User-wide defaults, especially for shell preferences
+2. **Project Configuration** (`.mgit_config.json`): Project-specific settings
+
+The configuration hierarchy works as follows:
+- Project settings take precedence over global settings
+- Global shell configurations are used if not specified in the project
+- Default values are used if neither is specified
+
 ### Configuration File Structure
 
-The `.mgit_config.json` file structure:
+The `.mgit_config.json` file structure (same for both global and project configs):
 
 ```json
 {
@@ -512,6 +525,86 @@ You can specify shells either by name (if in PATH) or by absolute path for more 
   }
 }
 ```
+
+### Global Configuration
+
+You can set user-wide defaults in `~/.mgit_config.json` (in your home directory). This is especially useful for shell preferences that you want to use across all projects.
+
+**Create global configuration**:
+
+```bash
+# Linux/macOS
+cat > ~/.mgit_config.json << 'EOF'
+{
+  "shells": {
+    "sh": "bash",
+    "powershell": "pwsh"
+  }
+}
+EOF
+
+# Windows (PowerShell)
+@'
+{
+  "shells": {
+    "sh": "C:\\Program Files\\Git\\bin\\bash.exe",
+    "powershell": "C:\\Program Files\\PowerShell\\7\\pwsh.exe"
+  }
+}
+'@ | Out-File -FilePath "$env:USERPROFILE\.mgit_config.json" -Encoding utf8
+```
+
+**How it works**:
+
+1. MetaGit first loads the project's `.mgit_config.json`
+2. If shell settings have default values, it looks for `~/.mgit_config.json`
+3. Global shell settings are applied if not overridden locally
+4. You can override global settings in any project by specifying shells locally
+
+**Example**:
+
+Global config (`~/.mgit_config.json`):
+```json
+{
+  "shells": {
+    "powershell": "pwsh"
+  }
+}
+```
+
+Project config (`.mgit_config.json`):
+```json
+{
+  "repositories": [...],
+  "tasks": [...]
+}
+```
+
+In this case, PowerShell scripts will use `pwsh` (from global config) even though the project config doesn't specify it.
+
+**Override example**:
+
+Global config:
+```json
+{
+  "shells": {
+    "powershell": "pwsh"
+  }
+}
+```
+
+Project config:
+```json
+{
+  "shells": {
+    "powershell": "powershell"
+  },
+  "repositories": [...],
+  "tasks": [...]
+}
+```
+
+In this case, the project explicitly uses Windows PowerShell (`powershell`), overriding the global preference for PowerShell Core (`pwsh`).
 
 ## Architecture
 

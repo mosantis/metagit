@@ -95,10 +95,68 @@ impl TaskStep {
 }
 
 impl Config {
+    /// Get the path to the global configuration file in user's home directory
+    pub fn global_config_path() -> Option<std::path::PathBuf> {
+        dirs::home_dir().map(|home| home.join(".mgit_config.json"))
+    }
+
+    /// Load configuration with fallback hierarchy:
+    /// 1. Try local project config
+    /// 2. If not found or if only loading shells, try global config
+    /// 3. Fall back to defaults
     pub fn load(path: &str) -> anyhow::Result<Self> {
-        let content = std::fs::read_to_string(path)?;
-        let config: Config = serde_json::from_str(&content)?;
-        Ok(config)
+        // Try to load local config
+        let local_config = if std::path::Path::new(path).exists() {
+            let content = std::fs::read_to_string(path)?;
+            Some(serde_json::from_str::<Config>(&content)?)
+        } else {
+            None
+        };
+
+        // Try to load global config for shell settings
+        let global_config = if let Some(global_path) = Self::global_config_path() {
+            if global_path.exists() {
+                match std::fs::read_to_string(&global_path) {
+                    Ok(content) => serde_json::from_str::<Config>(&content).ok(),
+                    Err(_) => None,
+                }
+            } else {
+                None
+            }
+        } else {
+            None
+        };
+
+        // Merge configurations: local takes precedence, but use global shells if local doesn't specify
+        match (local_config, global_config) {
+            (Some(mut local), Some(global)) => {
+                // If local config has default shells, use global shells
+                if local.shells.sh == "sh" && global.shells.sh != "sh" {
+                    local.shells.sh = global.shells.sh;
+                }
+                if local.shells.cmd == "cmd" && global.shells.cmd != "cmd" {
+                    local.shells.cmd = global.shells.cmd;
+                }
+                if local.shells.powershell == "powershell" && global.shells.powershell != "powershell" {
+                    local.shells.powershell = global.shells.powershell;
+                }
+                Ok(local)
+            }
+            (Some(local), None) => Ok(local),
+            (None, _) => anyhow::bail!("Configuration file '{}' not found", path),
+        }
+    }
+
+    /// Load only global configuration
+    pub fn load_global() -> anyhow::Result<Option<Self>> {
+        if let Some(global_path) = Self::global_config_path() {
+            if global_path.exists() {
+                let content = std::fs::read_to_string(&global_path)?;
+                let config: Config = serde_json::from_str(&content)?;
+                return Ok(Some(config));
+            }
+        }
+        Ok(None)
     }
 
     pub fn save(&self, path: &str) -> anyhow::Result<()> {
