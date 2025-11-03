@@ -209,6 +209,7 @@ impl Config {
     }
 
     /// Check if an author identity (name or email) is already mapped in users config
+    #[allow(dead_code)]
     pub fn is_author_mapped(&self, author_name: &str, author_email: &str) -> bool {
         let name_lower = author_name.to_lowercase();
         let email_lower = author_email.to_lowercase();
@@ -232,9 +233,32 @@ impl Config {
     }
 
     /// Add new unmapped author identities to the users section
-    /// Returns the number of new identities added
-    pub fn add_unmapped_authors(&mut self, name: String, email: String) {
-        // Use the name as the canonical key, and add email as an alias
-        self.users.entry(name.clone()).or_insert_with(|| vec![email]);
+    /// Uses case-insensitive matching to avoid duplicates
+    /// Returns true if a new entry or alias was added, false if it already existed
+    pub fn add_unmapped_authors(&mut self, name: String, email: String) -> bool {
+        let name_lower = name.to_lowercase();
+        let email_lower = email.to_lowercase();
+
+        // Find existing canonical key (case-insensitive match)
+        let existing_key = self.users.keys()
+            .find(|k| k.to_lowercase() == name_lower)
+            .cloned();
+
+        if let Some(canonical_key) = existing_key {
+            // Add email to existing entry if not already present (case-insensitive)
+            let aliases = self.users.get_mut(&canonical_key).unwrap();
+            let email_exists = aliases.iter().any(|a| a.to_lowercase() == email_lower);
+
+            if !email_exists {
+                aliases.push(email);
+                true // Added new alias
+            } else {
+                false // Email already exists
+            }
+        } else {
+            // Create new entry with the name as canonical key
+            self.users.insert(name, vec![email]);
+            true // Added new entry
+        }
     }
 }

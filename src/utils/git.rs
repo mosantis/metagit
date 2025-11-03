@@ -8,10 +8,27 @@ use std::path::{Path, PathBuf};
 use crate::models::{BranchInfo, RepoState};
 
 /// Represents a unique author identity (name + email)
-#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+/// Stores names and emails in their original case, but uses case-insensitive comparison
+#[derive(Debug, Clone)]
 pub struct AuthorIdentity {
     pub name: String,
     pub email: String,
+}
+
+impl PartialEq for AuthorIdentity {
+    fn eq(&self, other: &Self) -> bool {
+        self.name.to_lowercase() == other.name.to_lowercase() &&
+        self.email.to_lowercase() == other.email.to_lowercase()
+    }
+}
+
+impl Eq for AuthorIdentity {}
+
+impl std::hash::Hash for AuthorIdentity {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.name.to_lowercase().hash(state);
+        self.email.to_lowercase().hash(state);
+    }
 }
 
 /// Extract hostname from git URL (e.g., "git@github.com:..." -> "github.com")

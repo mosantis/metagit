@@ -78,23 +78,21 @@ pub fn refresh_command() -> Result<()> {
         }
     }
 
-    // Process unmapped author identities
+    // Process author identities - add all identities and track what was actually added
     let mut unmapped_count = 0;
-    let mut unmapped_identities: Vec<AuthorIdentity> = all_identities
-        .into_iter()
-        .filter(|identity| !config.is_author_mapped(&identity.name, &identity.email))
-        .collect();
+    let mut unmapped_identities: Vec<AuthorIdentity> = all_identities.into_iter().collect();
 
     // Sort by name for consistent ordering
     unmapped_identities.sort_by(|a, b| a.name.cmp(&b.name));
 
-    if !unmapped_identities.is_empty() {
-        for identity in &unmapped_identities {
-            config.add_unmapped_authors(identity.name.clone(), identity.email.clone());
+    for identity in &unmapped_identities {
+        if config.add_unmapped_authors(identity.name.clone(), identity.email.clone()) {
             unmapped_count += 1;
         }
+    }
 
-        // Save updated config
+    // Save updated config if anything was added
+    if unmapped_count > 0 {
         config.save(".mgitconfig.json")?;
     }
 
