@@ -264,10 +264,87 @@ pub fn get_repo_url(repo_path: &Path) -> Result<String> {
 }
 
 /// Get the current git user's name from global config
+#[allow(dead_code)]
 pub fn get_current_user() -> Result<String> {
     let config = git2::Config::open_default()?;
     let name = config
         .get_string("user.name")
         .context("Failed to get user.name from git config")?;
     Ok(name)
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum BranchStatus {
+    /// Branch is fully synced (green)
+    Synced,
+    /// Branch has local changes or commits to push (red)
+    NeedsPush,
+    /// Branch has remote commits to pull (orange)
+    NeedsPull,
+}
+
+/// Check if repository has uncommitted changes
+pub fn has_uncommitted_changes(repo_path: &Path) -> Result<bool> {
+    let repo = Repository::open(repo_path)?;
+
+    // Check for changes in working directory and index
+    let statuses = repo.statuses(None)?;
+
+    // If there are any status entries, we have uncommitted changes
+    Ok(!statuses.is_empty())
+}
+
+/// Get the sync status of a branch relative to its remote
+/// Returns (commits_ahead, commits_behind)
+pub fn get_branch_sync_status(repo_path: &Path, branch_name: &str) -> Result<(usize, usize)> {
+    let repo = Repository::open(repo_path)?;
+
+    // Get local branch reference
+    let local_ref_name = format!("refs/heads/{}", branch_name);
+    let local_ref = match repo.find_reference(&local_ref_name) {
+        Ok(r) => r,
+        Err(_) => return Ok((0, 0)), // Branch doesn't exist locally
+    };
+
+    let local_oid = match local_ref.target() {
+        Some(oid) => oid,
+        None => return Ok((0, 0)),
+    };
+
+    // Try to find remote tracking branch
+    let remote_ref_name = format!("refs/remotes/origin/{}", branch_name);
+    let remote_oid = match repo.find_reference(&remote_ref_name) {
+        Ok(remote_ref) => match remote_ref.target() {
+            Some(oid) => oid,
+            None => return Ok((0, 0)),
+        },
+        Err(_) => return Ok((0, 0)), // No remote tracking branch
+    };
+
+    // Use git2 to count commits ahead and behind
+    let (ahead, behind) = repo.graph_ahead_behind(local_oid, remote_oid)?;
+
+    Ok((ahead, behind))
+}
+
+/// Determine the overall status of a branch for coloring
+pub fn get_branch_status(repo_path: &Path, branch_name: &str) -> Result<BranchStatus> {
+    // Check for uncommitted changes first
+    if has_uncommitted_changes(repo_path)? {
+        return Ok(BranchStatus::NeedsPush);
+    }
+
+    // Check sync status with remote
+    let (ahead, behind) = get_branch_sync_status(repo_path, branch_name)?;
+
+    if behind > 0 {
+        // Has remote commits to pull (takes priority)
+        Ok(BranchStatus::NeedsPull)
+    } else if ahead > 0 {
+        // Has local commits to push
+        Ok(BranchStatus::NeedsPush)
+    } else {
+        // Fully synced
+        Ok(BranchStatus::Synced)
+    }
 }

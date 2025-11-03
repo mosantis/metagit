@@ -1,18 +1,26 @@
 use anyhow::Result;
-use chrono::{Duration, Utc};
 use colored::*;
 use std::path::Path;
 
 use crate::db::StateDb;
 use crate::models::Config;
-use crate::utils::{format_relative_time, get_current_user, get_repo_state, icons};
+use crate::utils::{format_relative_time, get_branch_status, get_repo_state, icons, BranchStatus};
+
+/// Color a branch name based on its sync status
+fn color_branch(branch_name: &str, status: BranchStatus) -> ColoredString {
+    match status {
+        BranchStatus::Synced => branch_name.green(),
+        BranchStatus::NeedsPush => branch_name.red(),
+        BranchStatus::NeedsPull => branch_name.yellow(), // Using yellow for orange
+    }
+}
 
 pub fn status_command(detailed: bool, all: bool) -> Result<()> {
     let config = Config::load(".mgitconfig.json")?;
     let db = StateDb::open(".mgitdb")?;
 
-    // Get current user for filtering
-    let current_user = get_current_user().ok();
+    // -a flag always forces detailed view
+    let detailed = detailed || all;
 
     let mut all_states = Vec::new();
 
@@ -53,43 +61,29 @@ pub fn status_command(detailed: bool, all: bool) -> Result<()> {
     // Sort by last updated (most recent first)
     all_states.sort_by(|a, b| b.last_updated.cmp(&a.last_updated));
 
-    // Filter branches based on flags
+    // Filter branches based on -a flag
     if !all {
-        let thirty_days_ago = Utc::now() - Duration::days(30);
-
-        if detailed {
-            // -d flag: show all branches with activity in last 30 days
-            for state in all_states.iter_mut() {
-                state.branches.retain(|b| b.last_updated > thirty_days_ago);
-            }
-            // Remove repositories with no branches after filtering
-            all_states.retain(|state| !state.branches.is_empty());
-        } else if let Some(ref user) = current_user {
-            // Default (simple view): show only repos where current user has worked on current branch
-            all_states.retain(|state| {
-                // Find the current branch
-                if let Some(current_branch) = state.branches.iter().find(|b| b.name == state.current_branch) {
-                    // Check if user has commits on the current branch
-                    current_branch.commit_stats.contains_key(user)
-                        && current_branch.commit_stats.get(user).copied().unwrap_or(0) > 0
-                } else {
-                    false
-                }
-            });
+        // Without -a: show only current branch (for both simple and detailed views)
+        for state in all_states.iter_mut() {
+            let current_branch_name = state.current_branch.clone();
+            state.branches.retain(|b| b.name == current_branch_name);
         }
     }
+    // With -a: show all branches (no filtering)
 
     if detailed {
         // Get icons for header
         let folder_icon = icons::files::folder();
+        let commit_icon = icons::git::commit();
         let owner_icon = icons::git::owner();
         let time_icon = icons::status::info();
         let branch_icon = icons::git::branch();
 
-        // Print header for detailed view with OWNER column
+        // Print header for detailed view with COMMITS and OWNER columns
         println!(
-            "{:<28} {:<15} {:<20} {}",
+            "{:<28} {:<10} {:<15} {:<20} {}",
             format!("{} REPOSITORY", folder_icon).bold(),
+            format!("{} COMMITS", commit_icon).bold(),
             format!("{} OWNER", owner_icon).bold(),
             format!("{} UPDATED", time_icon).bold(),
             format!("{} BRANCH", branch_icon).bold()
@@ -97,6 +91,8 @@ pub fn status_command(detailed: bool, all: bool) -> Result<()> {
 
         // Detailed view: show all branches
         for state in all_states {
+            let repo_path = Path::new(&state.name);
+
             for (idx, branch) in state.branches.iter().enumerate() {
                 let repo_name = if idx == 0 {
                     state.name.clone()
@@ -104,15 +100,19 @@ pub fn status_command(detailed: bool, all: bool) -> Result<()> {
                     String::new()
                 };
 
-                let branch_display = if branch.name == state.current_branch {
-                    branch.name.green().to_string()
-                } else {
-                    branch.name.to_string()
-                };
+                // Get branch status for coloring
+                let branch_status = get_branch_status(repo_path, &branch.name)
+                    .unwrap_or(BranchStatus::Synced);
+
+                let branch_display = color_branch(&branch.name, branch_status).to_string();
+
+                // Get commit count for the owner
+                let commit_count = branch.get_owner_commit_count();
 
                 println!(
-                    "  {:<28} {:<15} {:<20} {}",
+                    "  {:<28} {:<10} {:<15} {:<20} {}",
                     repo_name,
+                    commit_count,
                     branch.owner,
                     format_relative_time(branch.last_updated),
                     branch_display
@@ -125,7 +125,7 @@ pub fn status_command(detailed: bool, all: bool) -> Result<()> {
         let time_icon = icons::status::info();
         let branch_icon = icons::git::branch();
 
-        // Print header for simple view without OWNER column
+        // Print header for simple view without COMMITS or OWNER columns
         println!(
             "{:<28} {:<20} {}",
             format!("{} REPOSITORY", folder_icon).bold(),
@@ -135,7 +135,14 @@ pub fn status_command(detailed: bool, all: bool) -> Result<()> {
 
         // Simple view: show only current branch
         for state in all_states {
-            let branch_display = state.current_branch.green().to_string();
+            let repo_path = Path::new(&state.name);
+
+            // Get branch status for coloring
+            let branch_status = get_branch_status(repo_path, &state.current_branch)
+                .unwrap_or(BranchStatus::Synced);
+
+            let branch_display = color_branch(&state.current_branch, branch_status).to_string();
+
             println!(
                 "  {:<28} {:<20} {}",
                 state.name,

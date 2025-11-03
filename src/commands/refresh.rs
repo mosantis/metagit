@@ -50,7 +50,7 @@ pub fn refresh_command() -> Result<()> {
                     .sum();
 
                 println!(
-                    "  {} {} {} - {} branches, {} commits analyzed",
+                    "  {} {} {:<30} {} branches, {} commits analyzed",
                     check_icon,
                     folder_icon,
                     repo_config.name.green(),

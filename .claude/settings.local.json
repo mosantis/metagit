@@ -28,7 +28,15 @@
       "Bash(../target/release/mgit.exe run:*)",
       "Bash(tree:*)",
       "Bash(../target/release/mgit.exe init:*)",
-      "Bash(../target/release/mgit.exe refresh:*)"
+      "Bash(../target/release/mgit.exe refresh:*)",
+      "Bash(git checkout:*)",
+      "Bash(old.txt)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(new.txt)",
+      "Bash(git update-ref:*)",
+      "Bash(README.md)",
+      "Bash(git reset:*)"
     ],
     "deny": [],
     "ask": []

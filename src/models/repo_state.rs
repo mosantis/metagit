@@ -52,4 +52,17 @@ impl BranchInfo {
             primary_author.to_string()
         }
     }
+
+    /// Get the number of commits by the primary owner
+    pub fn get_owner_commit_count(&self) -> usize {
+        if self.commit_stats.is_empty() {
+            return 0;
+        }
+
+        // Find the author with the most commits
+        let mut authors: Vec<_> = self.commit_stats.iter().collect();
+        authors.sort_by(|a, b| b.1.cmp(a.1));
+
+        *authors[0].1
+    }
 }

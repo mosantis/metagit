@@ -92,6 +92,7 @@ pub mod status {
         }
     }
 
+    #[allow(dead_code)]
     pub fn waiting() -> String {
         if use_nerd_fonts() {
             // Nerd Font: nf-fa-clock_o (U+F017)
@@ -101,6 +102,7 @@ pub mod status {
         }
     }
 
+    #[allow(dead_code)]
     pub fn running() -> String {
         if use_nerd_fonts() {
             // Nerd Font: nf-fa-cog (U+F013)
