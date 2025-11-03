@@ -33,13 +33,25 @@ enum Commands {
     },
 
     /// Pull all repositories
-    Pull,
+    Pull {
+        /// Enable debug output for troubleshooting connection/credential issues
+        #[arg(long)]
+        debug: bool,
+    },
 
     /// Push all repositories
-    Push,
+    Push {
+        /// Enable debug output for troubleshooting connection/credential issues
+        #[arg(long)]
+        debug: bool,
+    },
 
     /// Sync (pull & push) all repositories
-    Sync,
+    Sync {
+        /// Enable debug output for troubleshooting connection/credential issues
+        #[arg(long)]
+        debug: bool,
+    },
 
     /// Refresh repository states and collect commit statistics
     Refresh,
@@ -61,9 +73,9 @@ fn main() -> Result<()> {
     match cli.command {
         Commands::Init => init_command()?,
         Commands::Status { detailed, all } => status_command(detailed, all)?,
-        Commands::Pull => pull_command()?,
-        Commands::Push => push_command()?,
-        Commands::Sync => sync_command()?,
+        Commands::Pull { debug } => pull_command(debug)?,
+        Commands::Push { debug } => push_command(debug)?,
+        Commands::Sync { debug } => sync_command(debug)?,
         Commands::Refresh => refresh_command()?,
         Commands::Run { task_name, detailed } => run_command(task_name.as_deref(), detailed)?,
     }

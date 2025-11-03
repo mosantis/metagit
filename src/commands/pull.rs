@@ -5,8 +5,13 @@ use std::path::Path;
 use crate::models::Config;
 use crate::utils::pull_repo;
 
-pub fn pull_command() -> Result<()> {
+pub fn pull_command(debug: bool) -> Result<()> {
     let config = Config::load(".mgitconfig.json")?;
+
+    if debug {
+        println!("{}", "🔍 DEBUG MODE ENABLED".bright_cyan().bold());
+        println!();
+    }
 
     println!("Pulling repositories...\n");
 
@@ -19,7 +24,7 @@ pub fn pull_command() -> Result<()> {
         }
 
         print!("{:<30} ", repo_config.name);
-        match pull_repo(repo_path) {
+        match pull_repo(repo_path, debug) {
             Ok(msg) => println!("{}", msg.green()),
             Err(e) => println!("{}: {}", "failed".red(), e),
         }

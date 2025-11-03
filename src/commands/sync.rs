@@ -5,8 +5,13 @@ use std::path::Path;
 use crate::models::Config;
 use crate::utils::{pull_repo, push_repo};
 
-pub fn sync_command() -> Result<()> {
+pub fn sync_command(debug: bool) -> Result<()> {
     let config = Config::load(".mgitconfig.json")?;
+
+    if debug {
+        println!("{}", "🔍 DEBUG MODE ENABLED".bright_cyan().bold());
+        println!();
+    }
 
     println!("Syncing repositories (pull & push)...\n");
 
@@ -21,7 +26,7 @@ pub fn sync_command() -> Result<()> {
         print!("{:<30} ", repo_config.name);
 
         // Pull first
-        match pull_repo(repo_path) {
+        match pull_repo(repo_path, debug) {
             Ok(msg) => print!("pull: {} ", msg.green()),
             Err(e) => {
                 println!("pull {}: {}", "failed".red(), e);
@@ -30,7 +35,7 @@ pub fn sync_command() -> Result<()> {
         }
 
         // Then push
-        match push_repo(repo_path) {
+        match push_repo(repo_path, debug) {
             Ok(msg) => println!("| push: {}", msg.green()),
             Err(e) => println!("| push {}: {}", "failed".red(), e),
         }

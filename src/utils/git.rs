@@ -1,11 +1,22 @@
 use anyhow::{Context, Result};
 use chrono::{DateTime, Utc};
+use colored::Colorize;
 use git2::{BranchType, Cred, FetchOptions, Oid, PushOptions, RemoteCallbacks, Repository};
 use std::collections::{HashMap, HashSet};
 use std::env;
 use std::path::{Path, PathBuf};
+use std::process::Command;
 
 use crate::models::{BranchInfo, RepoState};
+
+/// Debug logging macro - only prints if debug is true
+macro_rules! debug_log {
+    ($debug:expr, $($arg:tt)*) => {
+        if $debug {
+            println!("{} {}", "  [DEBUG]".bright_black(), format!($($arg)*).bright_black());
+        }
+    };
+}
 
 /// Represents a unique author identity (name + email)
 /// Stores names and emails in their original case, but uses case-insensitive comparison
@@ -72,42 +83,121 @@ fn expand_home(path: &str) -> PathBuf {
     }
 }
 
+/// Check if SSH agent is running
+fn is_ssh_agent_running() -> bool {
+    #[cfg(target_os = "windows")]
+    {
+        Command::new("cmd")
+            .args(&["/C", "where", "ssh-agent"])
+            .output()
+            .map(|o| o.status.success())
+            .unwrap_or(false)
+    }
+
+    #[cfg(not(target_os = "windows"))]
+    {
+        env::var("SSH_AUTH_SOCK").is_ok()
+    }
+}
+
 /// Create remote callbacks with SSH authentication support
 fn create_remote_callbacks<'a>(
     credentials: &'a HashMap<String, String>,
     remote_url: &'a str,
+    debug: bool,
 ) -> RemoteCallbacks<'a> {
     let mut callbacks = RemoteCallbacks::new();
 
-    callbacks.credentials(move |_url, username_from_url, _allowed_types| {
+    debug_log!(debug, "Setting up SSH authentication for: {}", remote_url);
+
+    if debug {
+        if is_ssh_agent_running() {
+            debug_log!(debug, "SSH agent: RUNNING");
+        } else {
+            debug_log!(debug, "SSH agent: NOT DETECTED");
+        }
+    }
+
+    callbacks.credentials(move |url, username_from_url, allowed_types| {
         let username = username_from_url.unwrap_or("git");
 
+        debug_log!(debug, "Credentials requested for URL: {}", url);
+        debug_log!(debug, "Username from URL: {:?}", username_from_url);
+        debug_log!(debug, "Allowed auth types: {:?}", allowed_types);
+
         // Try SSH agent first
+        debug_log!(debug, "Attempting SSH agent authentication...");
         if let Ok(cred) = Cred::ssh_key_from_agent(username) {
+            debug_log!(debug, "✓ SSH agent authentication succeeded");
             return Ok(cred);
         }
+        debug_log!(debug, "✗ SSH agent authentication failed");
 
         // Extract hostname from URL and look up configured credentials
         if let Some(hostname) = extract_hostname(remote_url) {
+            debug_log!(debug, "Extracted hostname: {}", hostname);
+
             if let Some(key_path) = credentials.get(&hostname) {
+                debug_log!(debug, "Found configured key for {}: {}", hostname, key_path);
+
                 let private_key = expand_home(key_path);
                 let public_key = PathBuf::from(format!("{}.pub", private_key.display()));
 
+                debug_log!(debug, "Private key path: {}", private_key.display());
+                debug_log!(debug, "Public key path: {}", public_key.display());
+
                 if private_key.exists() {
-                    if let Ok(cred) = Cred::ssh_key(
+                    debug_log!(debug, "✓ Private key exists");
+                } else {
+                    debug_log!(debug, "✗ Private key NOT FOUND at {}", private_key.display());
+                }
+
+                if public_key.exists() {
+                    debug_log!(debug, "✓ Public key exists");
+                } else {
+                    debug_log!(debug, "✗ Public key NOT FOUND at {}", public_key.display());
+                }
+
+                if private_key.exists() {
+                    debug_log!(debug, "Attempting SSH key authentication...");
+                    match Cred::ssh_key(
                         username,
                         Some(&public_key),
                         &private_key,
                         None,
                     ) {
-                        return Ok(cred);
+                        Ok(cred) => {
+                            debug_log!(debug, "✓ SSH key authentication succeeded");
+                            return Ok(cred);
+                        }
+                        Err(e) => {
+                            debug_log!(debug, "✗ SSH key authentication failed: {}", e);
+                        }
                     }
+                } else {
+                    debug_log!(debug, "Skipping SSH key auth (private key not found)");
                 }
+            } else {
+                debug_log!(debug, "No credentials configured for hostname: {}", hostname);
+                debug_log!(debug, "Available configured hosts: {:?}", credentials.keys().collect::<Vec<_>>());
             }
+        } else {
+            debug_log!(debug, "Failed to extract hostname from URL");
         }
 
         // As fallback, try default credential
-        Cred::default()
+        debug_log!(debug, "Attempting default credential fallback...");
+        match Cred::default() {
+            Ok(cred) => {
+                debug_log!(debug, "✓ Default credential succeeded");
+                Ok(cred)
+            }
+            Err(e) => {
+                debug_log!(debug, "✗ Default credential failed: {}", e);
+                debug_log!(debug, "❌ All authentication methods exhausted");
+                Err(e)
+            }
+        }
     });
 
     callbacks
@@ -380,12 +470,15 @@ pub fn refresh_repo_state(
     })
 }
 
-pub fn pull_repo(repo_path: &Path) -> Result<String> {
+pub fn pull_repo(repo_path: &Path, debug: bool) -> Result<String> {
     let repo = Repository::open(repo_path)?;
 
     // Get the current branch
     let head = repo.head()?;
     let branch_name = head.shorthand().unwrap_or("HEAD");
+
+    debug_log!(debug, "Repository: {:?}", repo_path);
+    debug_log!(debug, "Current branch: {}", branch_name);
 
     // Load config for credentials
     use crate::models::Config;
@@ -401,8 +494,10 @@ pub fn pull_repo(repo_path: &Path) -> Result<String> {
     let remote = repo.find_remote("origin")?;
     let remote_url = remote.url().unwrap_or("");
 
+    debug_log!(debug, "Remote URL: {}", remote_url);
+
     // Setup SSH callbacks for fetch
-    let callbacks = create_remote_callbacks(&config.credentials, remote_url);
+    let callbacks = create_remote_callbacks(&config.credentials, remote_url, debug);
     let mut fetch_options = FetchOptions::new();
     fetch_options.remote_callbacks(callbacks);
 
@@ -434,11 +529,14 @@ pub fn pull_repo(repo_path: &Path) -> Result<String> {
     Ok("Unknown state".to_string())
 }
 
-pub fn push_repo(repo_path: &Path) -> Result<String> {
+pub fn push_repo(repo_path: &Path, debug: bool) -> Result<String> {
     let repo = Repository::open(repo_path)?;
 
     let head = repo.head()?;
     let branch_name = head.shorthand().unwrap_or("HEAD");
+
+    debug_log!(debug, "Repository: {:?}", repo_path);
+    debug_log!(debug, "Current branch: {}", branch_name);
 
     // Load config for credentials
     use crate::models::Config;
@@ -454,8 +552,10 @@ pub fn push_repo(repo_path: &Path) -> Result<String> {
     let remote = repo.find_remote("origin")?;
     let remote_url = remote.url().unwrap_or("");
 
+    debug_log!(debug, "Remote URL: {}", remote_url);
+
     // Setup SSH callbacks for push
-    let callbacks = create_remote_callbacks(&config.credentials, remote_url);
+    let callbacks = create_remote_callbacks(&config.credentials, remote_url, debug);
     let mut push_options = PushOptions::new();
     push_options.remote_callbacks(callbacks);
 

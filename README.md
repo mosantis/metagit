@@ -21,6 +21,7 @@ A command-line tool written in Rust to enhance git functionality when dealing wi
 - **Multi-repository management**: Manage multiple git repositories from a single configuration
 - **Git operations**: Pull, push, sync, and check status across all repositories
 - **SSH authentication**: Configure SSH keys per Git hosting service for private repository access
+- **Debug mode**: Detailed logging for troubleshooting connection and credential issues
 - **User normalization**: Automatically discover and normalize author identities across repositories
 - **Task execution**: Define and execute custom tasks across multiple repositories with real-time progress
 - **Cross-platform support**: Platform-specific task steps for Windows, Linux, and macOS
@@ -196,6 +197,51 @@ mgit push
 # Sync (pull and push) all repositories
 mgit sync
 ```
+
+#### Debug Mode
+
+Troubleshoot connection and credential issues with the `--debug` flag:
+
+```bash
+mgit pull --debug
+mgit push --debug
+mgit sync --debug
+```
+
+Debug mode provides detailed information about:
+- Repository and branch being accessed
+- Remote URL
+- SSH agent status (running/not detected)
+- Hostname extraction from URL
+- Configured credentials lookup
+- SSH key paths and file existence
+- Authentication attempts and results
+- Detailed error messages for each authentication method
+
+Example debug output:
+```
+🔍 DEBUG MODE ENABLED
+
+Pulling repositories...
+
+backend                          [DEBUG] Repository: "backend"
+  [DEBUG] Current branch: main
+  [DEBUG] Remote URL: git@github.com:user/backend.git
+  [DEBUG] Setting up SSH authentication for: git@github.com:user/backend.git
+  [DEBUG] SSH agent: RUNNING
+  [DEBUG] Credentials requested for URL: git@github.com:user/backend.git
+  [DEBUG] Username from URL: Some("git")
+  [DEBUG] Attempting SSH agent authentication...
+  [DEBUG] ✓ SSH agent authentication succeeded
+Already up-to-date
+```
+
+**When to use debug mode**:
+- Authentication failures with SSH
+- Investigating credential configuration issues
+- Verifying SSH key paths are correct
+- Checking if SSH agent is running
+- Understanding which authentication method is being used
 
 ## Task Execution
 
