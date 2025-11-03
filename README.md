@@ -9,7 +9,11 @@ A command-line tool written in Rust to enhance git functionality when dealing wi
 - **Task execution**: Define and execute custom tasks across multiple repositories
 - **Local state caching**: Uses an embedded database (sled) to cache repository state
 - **Detailed status views**: See all branches and their last update times
-- **Beautiful icons**: Support for both standard Unicode and Nerd Font icons (see [ICONS.md](ICONS.md))
+- **Beautiful icons and visual feedback**:
+  - Standard Unicode icons work out-of-the-box in all terminals
+  - Enhanced Nerd Font icons for a premium terminal experience
+  - Color-coded output for better readability
+  - See [ICONS.md](ICONS.md) for full details and setup instructions
 
 ## Installation
 
@@ -66,8 +70,15 @@ mgit status
 Output:
 ```
 REPOSITORY                     BRANCH                                UPDATED
-repo1                          main                                  2 hours ago
-repo2                          develop                               10 days ago
+⚡ repo1                        ⎇ main                                2 hours ago
+⚡ repo2                        ⎇ develop                             10 days ago
+```
+
+With Nerd Fonts enabled (`NERD_FONT=1`):
+```
+REPOSITORY                     BRANCH                                UPDATED
+ repo1                         main                                2 hours ago
+ repo2                         develop                             10 days ago
 ```
 
 For detailed status showing all branches:
@@ -79,11 +90,11 @@ mgit status -d
 Output:
 ```
 REPOSITORY                     BRANCH                               UPDATED
-repo1                          me:main                               2 hours ago
-repo1                          andy:feature_5678_search_all          10/21/2005
-repo1                          lila:feature_5598_refactoring         10/21/2005
-repo2                          me:main                               3 weeks ago
-repo2                          me:develop                            10 days ago
+⚡ repo1                        ⎇ me:main                             2 hours ago
+⚡ repo1                        ⎇ andy:feature_5678_search_all        10/21/2005
+⚡ repo1                        ⎇ lila:feature_5598_refactoring       10/21/2005
+⚡ repo2                        ⎇ me:main                             3 weeks ago
+⚡ repo2                        ⎇ me:develop                          10 days ago
 ```
 
 ### Pull
@@ -156,8 +167,22 @@ The tool will display progress for each step:
 ```
 Executing "debug_build"...
 
+  ⚙ repo1                running...           [build.sh -d]
+  ⚙ repo2                running...           [build.sh -d]
+```
+
+Upon completion, you'll see status icons:
+```
+Executing "debug_build"...
+
+  ✓ repo1                completed            [build.sh -d]
+  ✓ repo2                completed            [build.sh -d]
+```
+
+With Nerd Fonts enabled, the icons are even more distinctive:
+```
   repo1                running...           [build.sh -d]
-  repo2                running...           [build.sh -d]
+   repo2                completed            [build.sh -d]
 ```
 
 #### Supported Script Types

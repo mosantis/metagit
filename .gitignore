@@ -16,4 +16,5 @@ Cargo.lock
 # OS files
 .DS_Store
 Thumbs.db
-test_repos/
+test-repos/
+test-repo/

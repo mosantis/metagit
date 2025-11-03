@@ -1,7 +1,17 @@
 {
   "permissions": {
     "allow": [
-      "Bash(git init:*)"
+      "Bash(git init:*)",
+      "Bash(cargo build --release)",
+      "Bash(./target/release/mgit.exe run test_batch)",
+      "Bash(cmd /C test.bat arg1 arg2)",
+      "Bash(test.bat arg1 arg2)",
+      "Bash(cmd //C test.bat arg1 arg2)",
+      "Bash(echo \"Exit code: $?\")",
+      "Bash(./target/release/mgit.exe run test_cmd)",
+      "Bash(powershell -File ./test.ps1 psarg1 psarg2)",
+      "Bash(./target/release/mgit.exe run test_all)",
+      "Bash(cat test-repos/.mgit_config.json)"
     ],
     "deny": [],
     "ask": []

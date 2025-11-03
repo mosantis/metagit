@@ -60,13 +60,33 @@ pub fn execute_script(
         }
         ScriptType::Batch => {
             let mut c = Command::new("cmd");
-            c.arg("/C").arg(script_path);
+            // For batch files, prefix with .\ to ensure cmd looks in current directory
+            let script_in_workdir = working_dir.join(script_path);
+            if script_in_workdir.exists() {
+                // Use .\ prefix for relative paths on Windows
+                let script_with_prefix = format!(".\\{}", script_path);
+                c.arg("/C").arg(script_with_prefix);
+            } else {
+                // Script might be in PATH or absolute path
+                c.arg("/C").arg(script_path);
+            }
             c.args(args);
             c
         }
         ScriptType::PowerShell => {
             let mut c = Command::new("powershell");
-            c.arg("-File").arg(script_path);
+            // Add execution policy bypass for script execution
+            c.arg("-ExecutionPolicy").arg("Bypass");
+            // For PowerShell files, use .\ prefix for relative paths
+            let script_in_workdir = working_dir.join(script_path);
+            if script_in_workdir.exists() {
+                // Use .\ prefix for relative paths on Windows
+                let script_with_prefix = format!(".\\{}", script_path);
+                c.arg("-File").arg(script_with_prefix);
+            } else {
+                // Script might be in PATH or absolute path
+                c.arg("-File").arg(script_path);
+            }
             c.args(args);
             c
         }
