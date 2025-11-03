@@ -247,9 +247,18 @@ pub fn run_command(task_name: &str) -> Result<()> {
             .insert(key.clone(), TaskStatus::Running);
 
         // Determine script type
-        let script_type = if step.step_type == "sh" {
-            ScriptType::Shell
+        // Priority: explicit type > inferred from extension
+        let script_type = if !step.step_type.is_empty() {
+            // Explicit type specified
+            match step.step_type.as_str() {
+                "sh" => ScriptType::Shell,
+                "bat" | "cmd" => ScriptType::Batch,
+                "ps1" => ScriptType::PowerShell,
+                "exe" => ScriptType::Executable,
+                _ => ScriptType::from_path(&step.cmd), // Unknown type, try to infer
+            }
         } else {
+            // No explicit type, infer from file extension
             ScriptType::from_path(&step.cmd)
         };
 

@@ -60,34 +60,43 @@ pub fn execute_script(
         }
         ScriptType::Batch => {
             let mut c = Command::new("cmd");
-            // For batch files, prefix with .\ to ensure cmd looks in current directory
             let script_in_workdir = working_dir.join(script_path);
+
             if script_in_workdir.exists() {
-                // Use .\ prefix for relative paths on Windows
+                // It's a file, use .\ prefix for relative paths on Windows
                 let script_with_prefix = format!(".\\{}", script_path);
                 c.arg("/C").arg(script_with_prefix);
+                c.args(args);
             } else {
-                // Script might be in PATH or absolute path
-                c.arg("/C").arg(script_path);
+                // It's a command, build full command string with args
+                let mut full_cmd = script_path.to_string();
+                for arg in args {
+                    full_cmd.push(' ');
+                    full_cmd.push_str(arg);
+                }
+                c.arg("/C").arg(full_cmd);
             }
-            c.args(args);
             c
         }
         ScriptType::PowerShell => {
             let mut c = Command::new("powershell");
-            // Add execution policy bypass for script execution
             c.arg("-ExecutionPolicy").arg("Bypass");
-            // For PowerShell files, use .\ prefix for relative paths
+
             let script_in_workdir = working_dir.join(script_path);
             if script_in_workdir.exists() {
-                // Use .\ prefix for relative paths on Windows
+                // It's a file, use -File parameter
                 let script_with_prefix = format!(".\\{}", script_path);
                 c.arg("-File").arg(script_with_prefix);
+                c.args(args);
             } else {
-                // Script might be in PATH or absolute path
-                c.arg("-File").arg(script_path);
+                // It's a command, use -Command parameter
+                let mut full_cmd = script_path.to_string();
+                for arg in args {
+                    full_cmd.push(' ');
+                    full_cmd.push_str(arg);
+                }
+                c.arg("-Command").arg(full_cmd);
             }
-            c.args(args);
             c
         }
         ScriptType::Executable => {

@@ -30,7 +30,7 @@ pub struct TaskStep {
 }
 
 fn default_type() -> String {
-    "sh".to_string()
+    String::new() // Empty string means infer from extension
 }
 
 impl Config {
