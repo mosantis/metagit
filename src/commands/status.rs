@@ -1,7 +1,6 @@
 use anyhow::Result;
 use colored::*;
 use std::path::Path;
-use unicode_width::UnicodeWidthStr;
 
 use crate::db::StateDb;
 use crate::models::Config;
@@ -44,38 +43,13 @@ pub fn status_command(detailed: bool) -> Result<()> {
         let time_icon = icons::status::info();
         let branch_icon = icons::git::branch();
 
-        // Calculate how much extra space icons take (emojis = 1 extra, nerd fonts = 0 extra)
-        let folder_extra = folder_icon.width().saturating_sub(1);
-        let owner_extra = owner_icon.width().saturating_sub(1);
-        let time_extra = time_icon.width().saturating_sub(1);
-
-        // Create padding strings to compensate for icon width
-        let folder_pad = " ".repeat(folder_extra);
-        let owner_pad = " ".repeat(owner_extra);
-        let time_pad = " ".repeat(time_extra);
-
-        // Column widths (same for header and data)
-        let repo_col_width: usize = 28;
-        let owner_col_width: usize = 15;
-        let updated_col_width: usize = 20;
-
         // Print header for detailed view with OWNER column
         println!(
-            "{}{} {:<repo_col_width$} {}{} {:<owner_col_width$} {}{} {:<updated_col_width$} {} {}",
-            folder_icon,
-            folder_pad,
-            "REPOSITORY".bold(),
-            owner_icon,
-            owner_pad,
-            "OWNER".bold(),
-            time_icon,
-            time_pad,
-            "UPDATED".bold(),
-            branch_icon,
-            "BRANCH".bold(),
-            repo_col_width = repo_col_width,
-            owner_col_width = owner_col_width,
-            updated_col_width = updated_col_width
+            "{:<28} {:<15} {:<20} {}",
+            format!("{} REPOSITORY", folder_icon).bold(),
+            format!("{} OWNER", owner_icon).bold(),
+            format!("{} UPDATED", time_icon).bold(),
+            format!("{} BRANCH", branch_icon).bold()
         );
 
         // Detailed view: show all branches
@@ -94,14 +68,11 @@ pub fn status_command(detailed: bool) -> Result<()> {
                 };
 
                 println!(
-                    "  {:<repo_col_width$} {:<owner_col_width$} {:<updated_col_width$} {}",
+                    "  {:<28} {:<15} {:<20} {}",
                     repo_name,
                     branch.owner,
                     format_relative_time(branch.last_updated),
-                    branch_display,
-                    repo_col_width = repo_col_width,
-                    owner_col_width = owner_col_width,
-                    updated_col_width = updated_col_width
+                    branch_display
                 );
             }
         }
@@ -111,43 +82,22 @@ pub fn status_command(detailed: bool) -> Result<()> {
         let time_icon = icons::status::info();
         let branch_icon = icons::git::branch();
 
-        // Calculate how much extra space icons take (emojis = 1 extra, nerd fonts = 0 extra)
-        let folder_extra = folder_icon.width().saturating_sub(1);
-        let time_extra = time_icon.width().saturating_sub(1);
-
-        // Create padding strings to compensate for icon width
-        let folder_pad = " ".repeat(folder_extra);
-        let time_pad = " ".repeat(time_extra);
-
-        // Column widths (same for header and data)
-        let repo_col_width: usize = 28;
-        let updated_col_width: usize = 20;
-
         // Print header for simple view without OWNER column
         println!(
-            "{}{} {:<repo_col_width$} {}{} {:<updated_col_width$} {} {}",
-            folder_icon,
-            folder_pad,
-            "REPOSITORY".bold(),
-            time_icon,
-            time_pad,
-            "UPDATED".bold(),
-            branch_icon,
-            "BRANCH".bold(),
-            repo_col_width = repo_col_width,
-            updated_col_width = updated_col_width
+            "{:<28} {:<20} {}",
+            format!("{} REPOSITORY", folder_icon).bold(),
+            format!("{} UPDATED", time_icon).bold(),
+            format!("{} BRANCH", branch_icon).bold()
         );
 
         // Simple view: show only current branch
         for state in all_states {
             let branch_display = state.current_branch.green().to_string();
             println!(
-                "  {:<repo_col_width$} {:<updated_col_width$} {}",
+                "  {:<28} {:<20} {}",
                 state.name,
                 format_relative_time(state.last_updated),
-                branch_display,
-                repo_col_width = repo_col_width,
-                updated_col_width = updated_col_width
+                branch_display
             );
         }
     }

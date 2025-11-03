@@ -20,7 +20,9 @@
       "Bash(cargo build:*)",
       "Bash(if [ -f \".mgit_config.json\" ])",
       "Bash(then mv \".mgit_config.json\" \".mgitconfig.json\")",
-      "Bash(fi)"
+      "Bash(fi)",
+      "Bash(../target/release/mgit.exe status:*)",
+      "Bash(NERD_FONT=1 ../target/release/mgit.exe status:*)"
     ],
     "deny": [],
     "ask": []
