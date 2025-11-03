@@ -37,7 +37,7 @@ pub fn refresh_command() -> Result<()> {
         // Get previous state from database for incremental updates
         let previous_state = db.get_repo_state(&repo_config.name).ok().flatten();
 
-        match refresh_repo_state(repo_path, &repo_config.name, previous_state.as_ref()) {
+        match refresh_repo_state(repo_path, &repo_config.name, previous_state.as_ref(), &config.users) {
             Ok(state) => {
                 // Save to database
                 db.save_repo_state(&state)?;

@@ -11,6 +11,10 @@ pub struct Config {
     /// SSH credentials: maps hostname (e.g., "github.com") to SSH private key path (e.g., "~/.ssh/id_github")
     #[serde(default)]
     pub credentials: HashMap<String, String>,
+    /// User aliases: maps canonical user name to list of aliases (names and emails)
+    /// Example: "John" -> ["John Crammer", "JC", "john.crammer@company.com"]
+    #[serde(default)]
+    pub users: HashMap<String, Vec<String>>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -148,6 +152,10 @@ impl Config {
                 for (host, key_path) in global.credentials {
                     local.credentials.entry(host).or_insert(key_path);
                 }
+                // Merge users from global config (global users as fallback)
+                for (canonical, aliases) in global.users {
+                    local.users.entry(canonical).or_insert(aliases);
+                }
                 Ok(local)
             }
             (Some(local), None) => Ok(local),
@@ -172,5 +180,30 @@ impl Config {
         let content = serde_json::to_string_pretty(self)?;
         std::fs::write(path, content)?;
         Ok(())
+    }
+
+    /// Normalize a user name or email to its canonical form
+    /// Returns the canonical name if a match is found, otherwise returns the input unchanged
+    pub fn normalize_user(&self, author: &str) -> String {
+        // Check each canonical user and their aliases
+        for (canonical, aliases) in &self.users {
+            // Case-insensitive comparison
+            let author_lower = author.to_lowercase();
+
+            // Check if the author matches the canonical name itself
+            if canonical.to_lowercase() == author_lower {
+                return canonical.clone();
+            }
+
+            // Check if the author matches any alias
+            for alias in aliases {
+                if alias.to_lowercase() == author_lower {
+                    return canonical.clone();
+                }
+            }
+        }
+
+        // No match found, return original
+        author.to_string()
     }
 }

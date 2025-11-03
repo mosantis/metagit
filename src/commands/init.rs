@@ -55,6 +55,7 @@ pub fn init_command() -> Result<()> {
         tasks: Vec::new(),
         shells: Default::default(),
         credentials: HashMap::new(),
+        users: HashMap::new(),
     };
 
     config.save(config_path)?;

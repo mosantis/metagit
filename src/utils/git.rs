@@ -162,6 +162,29 @@ fn find_main_branch(repo: &Repository) -> Option<Oid> {
     None
 }
 
+/// Normalize a user name or email to its canonical form
+fn normalize_author(author: &str, user_aliases: &HashMap<String, Vec<String>>) -> String {
+    let author_lower = author.to_lowercase();
+
+    // Check each canonical user and their aliases
+    for (canonical, aliases) in user_aliases {
+        // Check if matches canonical name
+        if canonical.to_lowercase() == author_lower {
+            return canonical.clone();
+        }
+
+        // Check if matches any alias
+        for alias in aliases {
+            if alias.to_lowercase() == author_lower {
+                return canonical.clone();
+            }
+        }
+    }
+
+    // No match found, return original
+    author.to_string()
+}
+
 /// Collect commit statistics for a branch
 /// Only counts commits that are NOT in the main branch (master/main)
 /// Returns (commit_stats, last_commit_sha, last_updated_time)
@@ -169,6 +192,7 @@ fn collect_branch_stats(
     repo: &Repository,
     branch_name: &str,
     branch_oid: Oid,
+    user_aliases: &HashMap<String, Vec<String>>,
 ) -> Result<(HashMap<String, usize>, String, DateTime<Utc>)> {
     let mut commit_stats = HashMap::new();
     let mut revwalk = repo.revwalk()?;
@@ -199,12 +223,22 @@ fn collect_branch_stats(
         let oid = oid_result?;
         let commit = repo.find_commit(oid)?;
 
-        // Get author name
+        // Get author name and normalize it
         let author = commit.author();
-        let author_name = author.name().unwrap_or("Unknown").to_string();
+        let author_name = author.name().unwrap_or("Unknown");
+        let author_email = author.email().unwrap_or("");
+
+        // Try to normalize using name first, then email if name doesn't match
+        let normalized_name = normalize_author(author_name, user_aliases);
+        let normalized_name = if normalized_name == author_name && !author_email.is_empty() {
+            // Name wasn't normalized, try email
+            normalize_author(author_email, user_aliases)
+        } else {
+            normalized_name
+        };
 
         // Increment commit count for this author
-        *commit_stats.entry(author_name).or_insert(0) += 1;
+        *commit_stats.entry(normalized_name).or_insert(0) += 1;
 
         // Capture the time of the first (most recent) commit
         if first_commit {
@@ -224,6 +258,7 @@ pub fn refresh_repo_state(
     repo_path: &Path,
     repo_name: &str,
     _previous_state: Option<&RepoState>,
+    user_aliases: &HashMap<String, Vec<String>>,
 ) -> Result<RepoState> {
     let repo = Repository::open(repo_path)
         .with_context(|| format!("Failed to open repository at {:?}", repo_path))?;
@@ -245,7 +280,7 @@ pub fn refresh_repo_state(
         // Collect commit stats (only unmerged commits from main branch)
         // We always recalculate from scratch since main branch can change
         let (commit_stats, last_sha, last_updated) =
-            collect_branch_stats(&repo, &name, branch_oid)?;
+            collect_branch_stats(&repo, &name, branch_oid, user_aliases)?;
 
         // Calculate owner based on commit stats
         let temp_branch = BranchInfo {
@@ -297,6 +332,7 @@ pub fn pull_repo(repo_path: &Path) -> Result<String> {
         tasks: Vec::new(),
         shells: Default::default(),
         credentials: HashMap::new(),
+        users: HashMap::new(),
     });
 
     // Get remote URL
@@ -349,6 +385,7 @@ pub fn push_repo(repo_path: &Path) -> Result<String> {
         tasks: Vec::new(),
         shells: Default::default(),
         credentials: HashMap::new(),
+        users: HashMap::new(),
     });
 
     // Get remote URL
