@@ -116,6 +116,105 @@ fn is_ssh_agent_running() -> bool {
     }
 }
 
+/// Check if we have valid SSH authentication available for the given remote URL
+/// Returns Ok(()) if authentication is available, or an error with helpful suggestions
+fn validate_ssh_auth(
+    remote_url: &str,
+    credentials: &HashMap<String, String>,
+    debug: bool,
+) -> Result<()> {
+    // Only check SSH URLs
+    if !remote_url.starts_with("git@") && !remote_url.starts_with("ssh://") {
+        return Ok(()); // HTTPS or other protocols
+    }
+
+    let hostname = extract_hostname(remote_url);
+    let has_ssh_agent = is_ssh_agent_running();
+
+    debug_log!(debug, "Validating SSH authentication...");
+    debug_log!(debug, "  SSH agent running: {}", has_ssh_agent);
+
+    // If SSH agent is running, we're good
+    if has_ssh_agent {
+        debug_log!(debug, "  ✓ SSH agent available");
+        return Ok(());
+    }
+
+    // Check if we have a configured key
+    if let Some(host) = hostname.as_ref() {
+        if let Some(key_path) = credentials.get(host) {
+            let private_key = expand_home(key_path);
+            let public_key = PathBuf::from(format!("{}.pub", private_key.display()));
+
+            debug_log!(debug, "  Checking configured key: {}", key_path);
+            debug_log!(debug, "    Private key: {}", private_key.display());
+            debug_log!(debug, "    Public key: {}", public_key.display());
+
+            // Check if both keys exist
+            if private_key.exists() && public_key.exists() {
+                debug_log!(debug, "  ✓ SSH keys found and valid");
+                return Ok(());
+            }
+
+            // Keys are configured but don't exist - provide specific error
+            let mut error_msg = format!(
+                "SSH authentication will fail: Configured keys not found\n\n\
+                 The key '{}' is configured in .mgitconfig.json but doesn't exist on disk.\n\n\
+                 Please choose one of these solutions:\n\n",
+                key_path
+            );
+
+            if !private_key.exists() {
+                error_msg.push_str(&format!("  • Private key missing: {}\n", private_key.display()));
+            }
+            if !public_key.exists() {
+                error_msg.push_str(&format!("  • Public key missing: {}\n", public_key.display()));
+            }
+
+            error_msg.push_str(&format!(
+                "\nSolutions:\n\
+                 1. Generate the missing SSH key:\n\
+                    ssh-keygen -t ed25519 -f {}\n\n\
+                 2. Update .mgitconfig.json to point to an existing key:\n\
+                    \"credentials\": {{\n\
+                      \"{}\": \"~/.ssh/id_rsa\"  (or your actual key path)\n\
+                    }}\n\n\
+                 3. Start SSH agent and add your key:\n\
+                    ssh-add ~/.ssh/id_rsa\n\
+                    (Then you won't need credentials in .mgitconfig.json)",
+                private_key.display(),
+                host
+            ));
+
+            return Err(anyhow::anyhow!(error_msg));
+        }
+    }
+
+    // No SSH agent and no configured keys
+    let hostname_str = hostname.as_ref().map(|s| s.as_str()).unwrap_or("unknown");
+    let error_msg = format!(
+        "SSH authentication not configured\n\n\
+         Repository URL: {}\n\
+         Host: {}\n\n\
+         No SSH authentication method is available. Please choose one solution:\n\n\
+         Solution 1 - Use SSH agent (recommended):\n\
+           • Start SSH agent: eval $(ssh-agent)\n\
+           • Add your key: ssh-add ~/.ssh/id_rsa\n\
+           • Verify keys: ssh-add -l\n\n\
+         Solution 2 - Configure key in .mgitconfig.json:\n\
+           Add this to your .mgitconfig.json file:\n\
+           \"credentials\": {{\n\
+             \"{}\": \"~/.ssh/id_rsa\"\n\
+           }}\n\n\
+         Solution 3 - Test SSH connection:\n\
+           ssh -T git@{}\n\
+           (This will help verify your SSH setup)",
+        remote_url, hostname_str, hostname_str, hostname_str
+    );
+
+    Err(anyhow::anyhow!(error_msg))
+}
+
 /// Create remote callbacks with SSH authentication support
 fn create_remote_callbacks<'a>(
     credentials: &'a HashMap<String, String>,
@@ -555,24 +654,8 @@ pub fn pull_repo(repo_path: &Path, debug: bool) -> Result<String> {
 
     debug_log!(debug, "Remote URL: {}", remote_url);
 
-    // Check if we have proper SSH setup
-    if debug && remote_url.starts_with("git@") {
-        let hostname = extract_hostname(remote_url);
-        let has_ssh_agent = is_ssh_agent_running();
-        let has_configured_key = hostname.as_ref().and_then(|h| config.credentials.get(h)).is_some();
-
-        if !has_ssh_agent && !has_configured_key {
-            debug_log!(debug, "⚠️  WARNING: SSH URL detected but no authentication method available!");
-            debug_log!(debug, "   Solutions:");
-            debug_log!(debug, "   1. Start SSH agent and add your key: ssh-add ~/.ssh/id_rsa");
-            if let Some(h) = hostname {
-                debug_log!(debug, "   2. Configure credentials in .mgitconfig.json:");
-                debug_log!(debug, "      \"credentials\": {{");
-                debug_log!(debug, "        \"{}\": \"~/.ssh/id_rsa\"", h);
-                debug_log!(debug, "      }}");
-            }
-        }
-    }
+    // Validate SSH authentication early to provide helpful error messages
+    validate_ssh_auth(remote_url, &config.credentials, debug)?;
 
     // Setup SSH callbacks for fetch
     let callbacks = create_remote_callbacks(&config.credentials, remote_url, debug);
@@ -634,24 +717,8 @@ pub fn push_repo(repo_path: &Path, debug: bool) -> Result<String> {
 
     debug_log!(debug, "Remote URL: {}", remote_url);
 
-    // Check if we have proper SSH setup
-    if debug && remote_url.starts_with("git@") {
-        let hostname = extract_hostname(remote_url);
-        let has_ssh_agent = is_ssh_agent_running();
-        let has_configured_key = hostname.as_ref().and_then(|h| config.credentials.get(h)).is_some();
-
-        if !has_ssh_agent && !has_configured_key {
-            debug_log!(debug, "⚠️  WARNING: SSH URL detected but no authentication method available!");
-            debug_log!(debug, "   Solutions:");
-            debug_log!(debug, "   1. Start SSH agent and add your key: ssh-add ~/.ssh/id_rsa");
-            if let Some(h) = hostname {
-                debug_log!(debug, "   2. Configure credentials in .mgitconfig.json:");
-                debug_log!(debug, "      \"credentials\": {{");
-                debug_log!(debug, "        \"{}\": \"~/.ssh/id_rsa\"", h);
-                debug_log!(debug, "      }}");
-            }
-        }
-    }
+    // Validate SSH authentication early to provide helpful error messages
+    validate_ssh_auth(remote_url, &config.credentials, debug)?;
 
     // Setup SSH callbacks for push
     let callbacks = create_remote_callbacks(&config.credentials, remote_url, debug);
