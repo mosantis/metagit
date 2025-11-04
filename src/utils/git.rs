@@ -1,7 +1,7 @@
 use anyhow::{Context, Result};
 use chrono::{DateTime, Utc};
 use colored::Colorize;
-use git2::{BranchType, Cred, FetchOptions, Oid, PushOptions, RemoteCallbacks, Repository};
+use git2::{BranchType, Cred, FetchOptions, Oid, PushOptions, RemoteCallbacks, Repository, Status};
 use std::collections::{HashMap, HashSet};
 use std::env;
 use std::path::{Path, PathBuf};
@@ -681,8 +681,34 @@ pub fn has_uncommitted_changes(repo_path: &Path) -> Result<bool> {
     // Check for changes in working directory and index
     let statuses = repo.statuses(None)?;
 
-    // If there are any status entries, we have uncommitted changes
-    Ok(!statuses.is_empty())
+    // Check if there are any changes that would need to be committed before pushing
+    // We ignore untracked files (WT_NEW) since they don't affect push status
+    for entry in statuses.iter() {
+        let status = entry.status();
+
+        // Check for staged changes (anything in the index)
+        if status.intersects(
+            Status::INDEX_NEW
+                | Status::INDEX_MODIFIED
+                | Status::INDEX_DELETED
+                | Status::INDEX_RENAMED
+                | Status::INDEX_TYPECHANGE,
+        ) {
+            return Ok(true);
+        }
+
+        // Check for unstaged changes to tracked files (but NOT untracked files)
+        if status.intersects(
+            Status::WT_MODIFIED
+                | Status::WT_DELETED
+                | Status::WT_TYPECHANGE
+                | Status::WT_RENAMED,
+        ) {
+            return Ok(true);
+        }
+    }
+
+    Ok(false)
 }
 
 /// Get the sync status of a branch relative to its remote
