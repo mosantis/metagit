@@ -47,7 +47,7 @@ impl BranchInfo {
         let has_other_contributors = authors.iter().skip(1).any(|(_, &count)| count >= threshold);
 
         if has_other_contributors {
-            format!("{} et al", primary_author)
+            format!("{}*", primary_author)
         } else {
             primary_author.to_string()
         }

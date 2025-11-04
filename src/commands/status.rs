@@ -18,9 +18,9 @@ fn color_branch(branch_name: &str, status: BranchStatus) -> ColoredString {
 #[allow(dead_code)]
 /// Format owner name with " et al" in darker gray
 fn format_owner(owner: &str) -> String {
-    if owner.ends_with(" et al") {
-        let base = &owner[..owner.len() - 6]; // Remove " et al"
-        format!("{}{}", base, " et al".bright_black())
+    if owner.ends_with("*") {
+        let base = &owner[..owner.len() - 1]; // Remove "*"
+        format!("{}{}", base, "*".bright_yellow())
     } else {
         owner.to_string()
     }
