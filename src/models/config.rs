@@ -239,26 +239,58 @@ impl Config {
         let name_lower = name.to_lowercase();
         let email_lower = email.to_lowercase();
 
-        // Find existing canonical key (case-insensitive match)
-        let existing_key = self.users.keys()
-            .find(|k| k.to_lowercase() == name_lower)
-            .cloned();
+        // First pass: find which canonical entry (if any) this name/email belongs to
+        let mut target_canonical: Option<String> = None;
+        let mut should_add_email = false;
+        let mut should_add_name = false;
 
-        if let Some(canonical_key) = existing_key {
-            // Add email to existing entry if not already present (case-insensitive)
-            let aliases = self.users.get_mut(&canonical_key).unwrap();
-            let email_exists = aliases.iter().any(|a| a.to_lowercase() == email_lower);
-
-            if !email_exists {
-                aliases.push(email);
-                true // Added new alias
-            } else {
-                false // Email already exists
+        for (canonical_key, aliases) in &self.users {
+            // Check if name matches canonical key
+            if canonical_key.to_lowercase() == name_lower {
+                target_canonical = Some(canonical_key.clone());
+                // Check if we need to add the email
+                should_add_email = !email_lower.is_empty() &&
+                                 !aliases.iter().any(|a| a.to_lowercase() == email_lower);
+                break;
             }
-        } else {
-            // Create new entry with the name as canonical key
-            self.users.insert(name, vec![email]);
-            true // Added new entry
+
+            // Check if name matches any alias
+            if aliases.iter().any(|a| a.to_lowercase() == name_lower) {
+                target_canonical = Some(canonical_key.clone());
+                // Check if we need to add the email
+                should_add_email = !email_lower.is_empty() &&
+                                 !aliases.iter().any(|a| a.to_lowercase() == email_lower);
+                break;
+            }
+
+            // Check if email matches any alias (and email is not empty)
+            if !email_lower.is_empty() && aliases.iter().any(|a| a.to_lowercase() == email_lower) {
+                target_canonical = Some(canonical_key.clone());
+                // Check if we need to add the name
+                should_add_name = canonical_key.to_lowercase() != name_lower &&
+                                !aliases.iter().any(|a| a.to_lowercase() == name_lower);
+                break;
+            }
         }
+
+        // Second pass: perform the mutation if we found a matching entry
+        if let Some(canonical) = target_canonical {
+            let mut added = false;
+            if let Some(aliases) = self.users.get_mut(&canonical) {
+                if should_add_email {
+                    aliases.push(email);
+                    added = true;
+                }
+                if should_add_name {
+                    aliases.push(name);
+                    added = true;
+                }
+            }
+            return added;
+        }
+
+        // Neither name nor email is mapped anywhere, create new entry
+        self.users.insert(name, vec![email]);
+        true
     }
 }
