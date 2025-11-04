@@ -28,12 +28,12 @@ impl BranchInfo {
     /// Returns "Author" if single author, or "Author et al" if multiple significant contributors
     pub fn calculate_owner(&self) -> String {
         if self.commit_stats.is_empty() {
-            return "unknown".to_string();
+            return "Unknown".to_string();
         }
 
         let total_commits: usize = self.commit_stats.values().sum();
         if total_commits == 0 {
-            return "unknown".to_string();
+            return "Unknown".to_string();
         }
 
         // Find the author with the most commits
