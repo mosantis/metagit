@@ -84,6 +84,21 @@ fn expand_home(path: &str) -> PathBuf {
     }
 }
 
+/// Get the current branch name from a repository
+/// Returns the branch name if on a branch, or "(detached)" if in detached HEAD state
+fn get_current_branch(repo: &Repository) -> Result<String> {
+    let head = repo.head()?;
+
+    // Check if HEAD is a symbolic reference (i.e., points to a branch)
+    if head.is_branch() {
+        // Get the branch name by removing the "refs/heads/" prefix
+        Ok(head.shorthand().unwrap_or("(unknown)").to_string())
+    } else {
+        // Detached HEAD state
+        Ok("(detached)".to_string())
+    }
+}
+
 /// Check if SSH agent is running
 fn is_ssh_agent_running() -> bool {
     // Check for SSH_AUTH_SOCK environment variable (works on all platforms)
@@ -365,8 +380,7 @@ pub fn get_repo_state(repo_path: &Path, repo_name: &str) -> Result<RepoState> {
     let repo = Repository::open(repo_path)
         .with_context(|| format!("Failed to open repository at {:?}", repo_path))?;
 
-    let head = repo.head()?;
-    let current_branch = head.shorthand().unwrap_or("(detached)").to_string();
+    let current_branch = get_current_branch(&repo)?;
 
     let mut branches = Vec::new();
 
@@ -573,8 +587,7 @@ pub fn refresh_repo_state(
     let repo = Repository::open(repo_path)
         .with_context(|| format!("Failed to open repository at {:?}", repo_path))?;
 
-    let head = repo.head()?;
-    let current_branch = head.shorthand().unwrap_or("(detached)").to_string();
+    let current_branch = get_current_branch(&repo)?;
 
     let mut branches = Vec::new();
 
@@ -632,8 +645,7 @@ pub fn pull_repo(repo_path: &Path, debug: bool) -> Result<String> {
     let repo = Repository::open(repo_path)?;
 
     // Get the current branch
-    let head = repo.head()?;
-    let branch_name = head.shorthand().unwrap_or("HEAD");
+    let branch_name = get_current_branch(&repo)?;
 
     debug_log!(debug, "Repository: {:?}", repo_path);
     debug_log!(debug, "Current branch: {}", branch_name);
@@ -666,7 +678,7 @@ pub fn pull_repo(repo_path: &Path, debug: bool) -> Result<String> {
 
     // Fetch
     let mut remote = repo.find_remote("origin")?;
-    remote.fetch(&[branch_name], Some(&mut fetch_options), None)?;
+    remote.fetch(&[branch_name.as_str()], Some(&mut fetch_options), None)?;
 
     // Get fetch head
     let fetch_head = repo.find_reference("FETCH_HEAD")?;
@@ -695,8 +707,7 @@ pub fn pull_repo(repo_path: &Path, debug: bool) -> Result<String> {
 pub fn push_repo(repo_path: &Path, debug: bool) -> Result<String> {
     let repo = Repository::open(repo_path)?;
 
-    let head = repo.head()?;
-    let branch_name = head.shorthand().unwrap_or("HEAD");
+    let branch_name = get_current_branch(&repo)?;
 
     debug_log!(debug, "Repository: {:?}", repo_path);
     debug_log!(debug, "Current branch: {}", branch_name);

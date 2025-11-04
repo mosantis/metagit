@@ -23,7 +23,11 @@ pub fn push_command(debug: bool) -> Result<()> {
             continue;
         }
 
-        print!("{:<30} ", repo_config.name);
+        if debug {
+            println!("{}", repo_config.name);
+        } else {
+            print!("{:<30} ", repo_config.name);
+        }
         match push_repo(repo_path, debug) {
             Ok(msg) => println!("{}", msg.green()),
             Err(e) => println!("{}: {}", "failed".red(), e),
