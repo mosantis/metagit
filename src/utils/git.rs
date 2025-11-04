@@ -87,15 +87,29 @@ fn expand_home(path: &str) -> PathBuf {
 /// Get the current branch name from a repository
 /// Returns the branch name if on a branch, or "(detached)" if in detached HEAD state
 fn get_current_branch(repo: &Repository) -> Result<String> {
-    let head = repo.head()?;
-
-    // Check if HEAD is a symbolic reference (i.e., points to a branch)
-    if head.is_branch() {
-        // Get the branch name by removing the "refs/heads/" prefix
-        Ok(head.shorthand().unwrap_or("(unknown)").to_string())
-    } else {
-        // Detached HEAD state
-        Ok("(detached)".to_string())
+    // Try to get the HEAD reference
+    match repo.head() {
+        Ok(head) => {
+            // Check if HEAD is a symbolic reference (points to a branch)
+            if head.is_branch() {
+                // Get the full reference name (e.g., "refs/heads/master")
+                if let Some(name) = head.name() {
+                    // Strip "refs/heads/" prefix to get just the branch name
+                    if let Some(branch_name) = name.strip_prefix("refs/heads/") {
+                        return Ok(branch_name.to_string());
+                    }
+                }
+                // Fallback to shorthand if strip_prefix fails
+                Ok(head.shorthand().unwrap_or("(unknown)").to_string())
+            } else {
+                // Detached HEAD state
+                Ok("(detached)".to_string())
+            }
+        }
+        Err(_) => {
+            // No HEAD (empty repository or corrupt)
+            Ok("(no branch)".to_string())
+        }
     }
 }
 
@@ -507,6 +521,49 @@ pub fn collect_all_author_identities(repo_path: &Path) -> Result<HashSet<AuthorI
     }
 
     Ok(identities)
+}
+
+/// Get branch info with stats for a specific branch
+/// This is used for on-demand caching when status command encounters a new current branch
+pub fn get_branch_info_with_stats(
+    repo_path: &Path,
+    branch_name: &str,
+    user_aliases: &HashMap<String, Vec<String>>,
+) -> Result<BranchInfo> {
+    let repo = Repository::open(repo_path)
+        .with_context(|| format!("Failed to open repository at {:?}", repo_path))?;
+
+    // Find the branch
+    let branch = repo.find_branch(branch_name, BranchType::Local)
+        .with_context(|| format!("Branch '{}' not found", branch_name))?;
+
+    // Get the branch reference
+    let reference = branch.get();
+    let branch_oid = reference.target()
+        .with_context(|| format!("Branch '{}' has no target", branch_name))?;
+
+    // Collect commit stats
+    let (commit_stats, last_sha, last_updated) =
+        collect_branch_stats(&repo, branch_name, branch_oid, user_aliases)?;
+
+    // Calculate owner based on commit stats
+    let temp_branch = BranchInfo {
+        name: branch_name.to_string(),
+        owner: String::new(), // Will be calculated
+        last_updated,
+        commit_stats: commit_stats.clone(),
+        last_commit_sha: Some(last_sha.clone()),
+    };
+
+    let owner = temp_branch.calculate_owner();
+
+    Ok(BranchInfo {
+        name: branch_name.to_string(),
+        owner,
+        last_updated,
+        commit_stats,
+        last_commit_sha: Some(last_sha),
+    })
 }
 
 /// Collect commit statistics for a branch

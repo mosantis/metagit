@@ -4,7 +4,7 @@ use std::path::Path;
 
 use crate::db::StateDb;
 use crate::models::Config;
-use crate::utils::{format_relative_time, get_branch_status, get_repo_state, icons, BranchStatus};
+use crate::utils::{format_relative_time, get_branch_info_with_stats, get_branch_status, get_repo_state, icons, BranchStatus};
 
 /// Color a branch name based on its sync status
 fn color_branch(branch_name: &str, status: BranchStatus) -> ColoredString {
@@ -45,9 +45,9 @@ pub fn status_command(detailed: bool, all: bool) -> Result<()> {
         }
 
         // Try to load from database first (will have better ownership info if refreshed)
-        let state = match db.get_repo_state(&repo_config.name) {
+        let mut state = match db.get_repo_state(&repo_config.name) {
             Ok(Some(db_state)) => {
-                // Use database state if available
+                // Use database state for branch stats
                 db_state
             }
             _ => {
@@ -65,6 +65,48 @@ pub fn status_command(detailed: bool, all: bool) -> Result<()> {
                 }
             }
         };
+
+        // SMART CACHING: Always update current_branch from live git state
+        // If the current branch is not in our cache, calculate its stats and add it
+        match get_repo_state(repo_path, &repo_config.name) {
+            Ok(live_state) => {
+                let current_branch = live_state.current_branch;
+
+                // Check if this branch is already in our cached branches
+                let branch_exists = state.branches.iter().any(|b| b.name == current_branch);
+
+                if !branch_exists && current_branch != "(detached)" && current_branch != "(no branch)" {
+                    // Branch not cached - calculate stats on-demand and add to cache
+                    match get_branch_info_with_stats(repo_path, &current_branch, &config.users) {
+                        Ok(branch_info) => {
+                            // Add this branch to the cached branches
+                            state.branches.push(branch_info.clone());
+
+                            // Update state's last_updated to this branch's last_updated
+                            state.last_updated = branch_info.last_updated;
+
+                            // Save updated state back to database
+                            let _ = db.save_repo_state(&state);
+                        }
+                        Err(e) => {
+                            eprintln!("Warning: Could not calculate stats for branch '{}' in '{}': {}",
+                                     current_branch, repo_config.name, e);
+                        }
+                    }
+                } else if branch_exists {
+                    // Branch is cached - update last_updated from cached branch info
+                    if let Some(branch_info) = state.branches.iter().find(|b| b.name == current_branch) {
+                        state.last_updated = branch_info.last_updated;
+                    }
+                }
+
+                // Always update the current_branch to live value
+                state.current_branch = current_branch;
+            }
+            Err(e) => {
+                eprintln!("Warning: Could not read current branch for '{}': {}", repo_config.name, e);
+            }
+        }
 
         all_states.push(state);
     }
