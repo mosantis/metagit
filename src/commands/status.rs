@@ -15,6 +15,7 @@ fn color_branch(branch_name: &str, status: BranchStatus) -> ColoredString {
     }
 }
 
+#[allow(dead_code)]
 /// Format owner name with " et al" in darker gray
 fn format_owner(owner: &str) -> String {
     if owner.ends_with(" et al") {
@@ -123,7 +124,7 @@ pub fn status_command(detailed: bool, all: bool) -> Result<()> {
                     "  {:<28} {:<10} {:<25} {:<20} {}",
                     repo_name,
                     commit_count,
-                    format_owner(&branch.owner),
+                    branch.owner, //format_owner(&branch.owner),
                     format_relative_time(branch.last_updated),
                     branch_display
                 );
