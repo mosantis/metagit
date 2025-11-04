@@ -2,6 +2,7 @@ use anyhow::{Context, Result};
 use chrono::{DateTime, Utc};
 use colored::Colorize;
 use git2::{BranchType, Cred, FetchOptions, Oid, PushOptions, RemoteCallbacks, Repository, Status};
+use std::cell::Cell;
 use std::collections::{HashMap, HashSet};
 use std::env;
 use std::path::{Path, PathBuf};
@@ -152,20 +153,44 @@ fn create_remote_callbacks<'a>(
         }
     }
 
-    callbacks.credentials(move |url, username_from_url, allowed_types| {
-        let username = username_from_url.unwrap_or("git");
+    // Track callback attempts to prevent infinite loops
+    let attempt_counter = Cell::new(0);
 
-        debug_log!(debug, "Credentials requested for URL: {}", url);
+    callbacks.credentials(move |url, username_from_url, allowed_types| {
+        // Increment and check attempt counter to prevent infinite loops
+        let attempts = attempt_counter.get() + 1;
+        attempt_counter.set(attempts);
+
+        debug_log!(debug, "Credentials requested for URL: {} (attempt {})", url, attempts);
         debug_log!(debug, "Username from URL: {:?}", username_from_url);
         debug_log!(debug, "Allowed auth types: {:?}", allowed_types);
 
-        // Try SSH agent first
-        debug_log!(debug, "Attempting SSH agent authentication...");
-        if let Ok(cred) = Cred::ssh_key_from_agent(username) {
-            debug_log!(debug, "✓ SSH agent authentication succeeded");
-            return Ok(cred);
+        // Prevent infinite loop - bail out after max attempts
+        const MAX_ATTEMPTS: usize = 3;
+        if attempts > MAX_ATTEMPTS {
+            debug_log!(debug, "❌ Maximum authentication attempts ({}) exceeded", MAX_ATTEMPTS);
+            return Err(git2::Error::from_str(&format!(
+                "Authentication failed after {} attempts. Please check your SSH setup:\n\
+                 1. Ensure SSH agent is running and has your key: ssh-add -l\n\
+                 2. Add your key to the agent: ssh-add ~/.ssh/id_rsa\n\
+                 3. Or configure credentials in .mgitconfig.json",
+                MAX_ATTEMPTS
+            )));
         }
-        debug_log!(debug, "✗ SSH agent authentication failed");
+
+        let username = username_from_url.unwrap_or("git");
+
+        // Try SSH agent first (only if it's actually running)
+        if is_ssh_agent_running() {
+            debug_log!(debug, "Attempting SSH agent authentication...");
+            if let Ok(cred) = Cred::ssh_key_from_agent(username) {
+                debug_log!(debug, "✓ SSH agent authentication succeeded");
+                return Ok(cred);
+            }
+            debug_log!(debug, "✗ SSH agent authentication failed");
+        } else {
+            debug_log!(debug, "Skipping SSH agent (not running)");
+        }
 
         // Extract hostname from URL and look up configured credentials
         if let Some(hostname) = extract_hostname(remote_url) {
