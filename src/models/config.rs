@@ -122,6 +122,16 @@ impl Config {
         }
     }
 
+    /// Get the database path relative to the config file's directory
+    /// Returns ".mgitdb" in the same directory as .mgitconfig.json
+    pub fn get_db_path(&self) -> std::path::PathBuf {
+        if let Some(config_dir) = &self.config_dir {
+            config_dir.join(".mgitdb")
+        } else {
+            std::path::PathBuf::from(".mgitdb")
+        }
+    }
+
     /// Search for .mgitconfig.json starting from current directory and walking up
     /// Stops at $HOME (does not use $HOME/.mgitconfig.json as project config)
     pub fn find_project_config() -> Option<std::path::PathBuf> {

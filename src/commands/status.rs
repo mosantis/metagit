@@ -28,7 +28,8 @@ fn format_owner(owner: &str) -> String {
 
 pub fn status_command(all: bool) -> Result<()> {
     let config = Config::load_from_project()?;
-    let db = StateDb::open(".mgitdb")?;
+    let db_path = config.get_db_path();
+    let db = StateDb::open(db_path.to_str().unwrap_or(".mgitdb"))?;
 
     let mut all_states = Vec::new();
 

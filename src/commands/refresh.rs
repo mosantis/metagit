@@ -9,7 +9,8 @@ use crate::utils::icons;
 
 pub fn refresh_command() -> Result<()> {
     let mut config = Config::load_from_project()?;
-    let db = StateDb::open(".mgitdb")?;
+    let db_path = config.get_db_path();
+    let db = StateDb::open(db_path.to_str().unwrap_or(".mgitdb"))?;
 
     let folder_icon = icons::files::folder();
     let check_icon = icons::status::success();
