@@ -968,3 +968,143 @@ pub fn get_branch_status(repo_path: &Path, branch_name: &str) -> Result<BranchSt
         Ok(BranchStatus::Synced)
     }
 }
+
+/// Result of repository repair operation
+#[derive(Debug, Default)]
+pub struct RepairResult {
+    pub fixed_fetch_head: bool,
+    pub removed_corrupted_refs: Vec<String>,
+    pub fsck_errors: Vec<String>,
+    pub needs_attention: bool,
+}
+
+impl RepairResult {
+    pub fn has_fixes(&self) -> bool {
+        self.fixed_fetch_head || !self.removed_corrupted_refs.is_empty()
+    }
+}
+
+/// Attempt to repair common git repository corruption issues
+pub fn repair_repository(repo_path: &Path) -> Result<RepairResult> {
+    let mut result = RepairResult::default();
+    let git_dir = repo_path.join(".git");
+
+    if !git_dir.exists() {
+        return Err(anyhow::anyhow!("Not a git repository"));
+    }
+
+    // 1. Check and fix FETCH_HEAD corruption
+    let fetch_head = git_dir.join("FETCH_HEAD");
+    if fetch_head.exists() {
+        // Try to read FETCH_HEAD - if it fails, it's corrupted
+        match std::fs::read_to_string(&fetch_head) {
+            Ok(content) => {
+                // Check if content looks corrupted (empty, binary data, etc.)
+                if content.is_empty() || content.contains('\0') {
+                    std::fs::remove_file(&fetch_head)
+                        .context("Failed to remove corrupted FETCH_HEAD")?;
+                    result.fixed_fetch_head = true;
+                }
+            }
+            Err(_) => {
+                // Cannot read file - likely corrupted
+                std::fs::remove_file(&fetch_head)
+                    .context("Failed to remove corrupted FETCH_HEAD")?;
+                result.fixed_fetch_head = true;
+            }
+        }
+    }
+
+    // 2. Check for corrupted loose references in .git/refs
+    let refs_dir = git_dir.join("refs");
+    if refs_dir.exists() {
+        check_and_fix_refs(&refs_dir, &mut result)?;
+    }
+
+    // 3. Run git fsck to detect other issues
+    let fsck_output = Command::new("git")
+        .args(&["-C", repo_path.to_str().unwrap(), "fsck", "--no-progress"])
+        .output();
+
+    if let Ok(output) = fsck_output {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        let stdout = String::from_utf8_lossy(&output.stdout);
+
+        // Collect error/warning messages
+        for line in stderr.lines().chain(stdout.lines()) {
+            if line.contains("error:") || line.contains("fatal:") {
+                result.fsck_errors.push(line.to_string());
+                result.needs_attention = true;
+            }
+        }
+    }
+
+    Ok(result)
+}
+
+/// Recursively check and fix corrupted references
+fn check_and_fix_refs(refs_dir: &Path, result: &mut RepairResult) -> Result<()> {
+    if !refs_dir.exists() {
+        return Ok(());
+    }
+
+    for entry in std::fs::read_dir(refs_dir)? {
+        let entry = entry?;
+        let path = entry.path();
+
+        if path.is_dir() {
+            // Recursively check subdirectories
+            check_and_fix_refs(&path, result)?;
+        } else if path.is_file() {
+            // Check if reference file is valid
+            match std::fs::read_to_string(&path) {
+                Ok(content) => {
+                    // Valid ref should be a 40-char hex SHA or a symbolic ref
+                    let trimmed = content.trim();
+                    if !is_valid_ref_content(trimmed) {
+                        // Corrupted reference - remove it
+                        let rel_path = path.strip_prefix(refs_dir.parent().unwrap().parent().unwrap())
+                            .unwrap_or(&path)
+                            .to_string_lossy()
+                            .to_string();
+
+                        std::fs::remove_file(&path)
+                            .with_context(|| format!("Failed to remove corrupted ref: {}", rel_path))?;
+
+                        result.removed_corrupted_refs.push(rel_path);
+                    }
+                }
+                Err(_) => {
+                    // Cannot read file - likely corrupted
+                    let rel_path = path.strip_prefix(refs_dir.parent().unwrap().parent().unwrap())
+                        .unwrap_or(&path)
+                        .to_string_lossy()
+                        .to_string();
+
+                    std::fs::remove_file(&path)
+                        .with_context(|| format!("Failed to remove corrupted ref: {}", rel_path))?;
+
+                    result.removed_corrupted_refs.push(rel_path);
+                }
+            }
+        }
+    }
+
+    Ok(())
+}
+
+/// Check if reference content is valid
+fn is_valid_ref_content(content: &str) -> bool {
+    if content.is_empty() {
+        return false;
+    }
+
+    // Check for symbolic refs (e.g., "ref: refs/heads/main")
+    if content.starts_with("ref:") {
+        return true;
+    }
+
+    // Check for SHA-1 (40 hex chars) or SHA-256 (64 hex chars)
+    let len = content.len();
+    (len == 40 || len == 64) && content.chars().all(|c| c.is_ascii_hexdigit())
+}

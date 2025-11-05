@@ -4,7 +4,7 @@ use std::collections::HashSet;
 
 use crate::db::StateDb;
 use crate::models::Config;
-use crate::utils::git::{collect_all_author_identities, refresh_repo_state, AuthorIdentity};
+use crate::utils::git::{collect_all_author_identities, refresh_repo_state, repair_repository, AuthorIdentity};
 use crate::utils::icons;
 
 pub fn refresh_command() -> Result<()> {
@@ -19,6 +19,7 @@ pub fn refresh_command() -> Result<()> {
 
     let mut success_count = 0;
     let mut error_count = 0;
+    let mut repair_count = 0;
     let mut all_identities = HashSet::new();
 
     for repo_config in &config.repositories {
@@ -33,6 +34,55 @@ pub fn refresh_command() -> Result<()> {
             );
             error_count += 1;
             continue;
+        }
+
+        // Attempt to repair repository before refreshing
+        match repair_repository(&repo_path) {
+            Ok(repair_result) => {
+                if repair_result.has_fixes() {
+                    repair_count += 1;
+
+                    // Report what was fixed
+                    if repair_result.fixed_fetch_head {
+                        println!(
+                            "  {} {} - {}",
+                            icons::status::info(),
+                            repo_config.name.cyan(),
+                            "repaired corrupted FETCH_HEAD".yellow()
+                        );
+                    }
+
+                    for ref_path in &repair_result.removed_corrupted_refs {
+                        println!(
+                            "  {} {} - {}",
+                            icons::status::info(),
+                            repo_config.name.cyan(),
+                            format!("removed corrupted ref: {}", ref_path).yellow()
+                        );
+                    }
+                }
+
+                // Warn if there are issues that need manual attention
+                if repair_result.needs_attention {
+                    for error in &repair_result.fsck_errors {
+                        eprintln!(
+                            "  {} {} - {}",
+                            icons::status::warning(),
+                            repo_config.name.yellow(),
+                            error.red()
+                        );
+                    }
+                }
+            }
+            Err(e) => {
+                // Non-fatal - continue with refresh
+                eprintln!(
+                    "  {} {} - {}",
+                    icons::status::warning(),
+                    repo_config.name.yellow(),
+                    format!("repair check failed: {}", e).yellow()
+                );
+            }
         }
 
         // Collect author identities from this repository
@@ -112,6 +162,18 @@ pub fn refresh_command() -> Result<()> {
             )
             .yellow()
             .bold()
+        );
+    }
+
+    if repair_count > 0 {
+        println!(
+            "{}",
+            format!(
+                "Repaired {} repositor{}",
+                repair_count,
+                if repair_count == 1 { "y" } else { "ies" }
+            )
+            .yellow()
         );
     }
 
