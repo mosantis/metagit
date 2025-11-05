@@ -61,18 +61,6 @@ pub fn refresh_command() -> Result<()> {
                         );
                     }
                 }
-
-                // Warn if there are issues that need manual attention
-                if repair_result.needs_attention {
-                    for error in &repair_result.fsck_errors {
-                        eprintln!(
-                            "  {} {} - {}",
-                            icons::status::warning(),
-                            repo_config.name.yellow(),
-                            error.red()
-                        );
-                    }
-                }
             }
             Err(e) => {
                 // Non-fatal - continue with refresh

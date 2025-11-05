@@ -974,8 +974,6 @@ pub fn get_branch_status(repo_path: &Path, branch_name: &str) -> Result<BranchSt
 pub struct RepairResult {
     pub fixed_fetch_head: bool,
     pub removed_corrupted_refs: Vec<String>,
-    pub fsck_errors: Vec<String>,
-    pub needs_attention: bool,
 }
 
 impl RepairResult {
@@ -1021,23 +1019,8 @@ pub fn repair_repository(repo_path: &Path) -> Result<RepairResult> {
         check_and_fix_refs(&refs_dir, &mut result)?;
     }
 
-    // 3. Run git fsck to detect other issues
-    let fsck_output = Command::new("git")
-        .args(&["-C", repo_path.to_str().unwrap(), "fsck", "--no-progress"])
-        .output();
-
-    if let Ok(output) = fsck_output {
-        let stderr = String::from_utf8_lossy(&output.stderr);
-        let stdout = String::from_utf8_lossy(&output.stdout);
-
-        // Collect error/warning messages
-        for line in stderr.lines().chain(stdout.lines()) {
-            if line.contains("error:") || line.contains("fatal:") {
-                result.fsck_errors.push(line.to_string());
-                result.needs_attention = true;
-            }
-        }
-    }
+    // Note: Skipping git fsck as it can be very slow on large repositories
+    // and the critical corruptions (FETCH_HEAD, loose refs) are already handled
 
     Ok(result)
 }
