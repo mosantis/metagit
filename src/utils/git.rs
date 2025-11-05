@@ -391,6 +391,17 @@ fn create_remote_callbacks<'a>(
 }
 
 pub fn get_repo_state(repo_path: &Path, repo_name: &str) -> Result<RepoState> {
+    // Load config to get user aliases for owner inference
+    use crate::models::Config;
+    let config = Config::load_from_project().unwrap_or_else(|_| Config {
+        repositories: Vec::new(),
+        tasks: Vec::new(),
+        shells: Default::default(),
+        credentials: HashMap::new(),
+        users: HashMap::new(),
+        config_dir: None,
+    });
+
     let repo = Repository::open(repo_path)
         .with_context(|| format!("Failed to open repository at {:?}", repo_path))?;
 
@@ -410,8 +421,11 @@ pub fn get_repo_state(repo_path: &Path, repo_name: &str) -> Result<RepoState> {
         let timestamp = time.seconds();
         let last_updated = DateTime::from_timestamp(timestamp, 0).unwrap_or_else(Utc::now);
 
-        // Try to extract owner from branch name (e.g., "feature/user/something")
-        let owner = extract_owner(&name);
+        // Infer owner from current git user (same logic as refresh/cache)
+        let owner = match get_current_user() {
+            Ok(user_name) => normalize_author(&user_name, &config.users),
+            Err(_) => "Unknown".to_string(),
+        };
 
         branches.push(BranchInfo {
             name: name.clone(),
@@ -436,16 +450,6 @@ pub fn get_repo_state(repo_path: &Path, repo_name: &str) -> Result<RepoState> {
         last_updated,
         branches,
     })
-}
-
-fn extract_owner(branch_name: &str) -> String {
-    // Simple heuristic: if branch contains a slash, take the first part
-    // Otherwise just return "me" for now
-    if let Some(pos) = branch_name.find('/') {
-        branch_name[..pos].to_string()
-    } else {
-        "me".to_string()
-    }
 }
 
 /// Find the main branch (master or main)
