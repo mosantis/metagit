@@ -64,7 +64,7 @@ pub fn status_command(all: bool) -> Result<()> {
         };
 
         // SMART CACHING: Always update current_branch from live git state
-        // If the current branch is not in our cache, calculate its stats and add it
+        // Check if master/main changed - if so, invalidate ALL branches
         match get_repo_state(&repo_path, &repo_config.name) {
             Ok(live_state) => {
                 let current_branch = live_state.current_branch;
@@ -75,48 +75,100 @@ pub fn status_command(all: bool) -> Result<()> {
                 if current_branch == "(detached)" || current_branch == "(no branch)" {
                     // Skip special branch states - no stats to calculate
                 } else {
-                    // Check if this branch is already in our cached branches
-                    let cached_branch = state.branches.iter().find(|b| b.name == current_branch);
-
-                    // Get current commit SHA for this branch
-                    let current_sha = get_branch_commit_sha(&repo_path, &current_branch).ok();
-
-                    let needs_recalculation = if let Some(cached) = cached_branch {
-                        // Branch exists in cache - check if it has changed
-                        match (&cached.last_commit_sha, &current_sha) {
-                            (Some(cached_sha), Some(cur_sha)) => cached_sha != cur_sha,
-                            _ => true, // Recalculate if we can't compare SHAs
-                        }
+                    // Determine base branch (master or main)
+                    let base_branch = if get_branch_commit_sha(&repo_path, "master").is_ok() {
+                        "master"
+                    } else if get_branch_commit_sha(&repo_path, "main").is_ok() {
+                        "main"
                     } else {
-                        // Branch not in cache - needs calculation
-                        true
+                        "" // No base branch found
                     };
 
-                    if needs_recalculation {
-                        // Calculate or recalculate stats for this branch
-                        match get_branch_info_with_stats(&repo_path, &current_branch, &config.users) {
-                            Ok(branch_info) => {
-                                // Remove old cached version if it exists
-                                state.branches.retain(|b| b.name != current_branch);
+                    // Check if base branch (master/main) has changed
+                    let base_branch_changed = if !base_branch.is_empty() {
+                        let current_base_sha = get_branch_commit_sha(&repo_path, base_branch).ok();
+                        let cached_base = state.branches.iter().find(|b| b.name == base_branch);
 
-                                // Add updated branch info
-                                state.branches.push(branch_info.clone());
-
-                                // Update state's last_updated to this branch's last_updated
-                                state.last_updated = branch_info.last_updated;
-
-                                // Save updated state back to database
-                                let _ = db.save_repo_state(&state);
+                        match (cached_base, current_base_sha) {
+                            (Some(cached), Some(cur_sha)) => {
+                                match &cached.last_commit_sha {
+                                    Some(cached_sha) => cached_sha != &cur_sha,
+                                    None => true, // No cached SHA - recalculate
+                                }
                             }
-                            Err(e) => {
-                                eprintln!("Warning: Could not calculate stats for branch '{}' in '{}': {}",
-                                         current_branch, repo_config.name, e);
-                            }
+                            _ => true, // Either not cached or can't get SHA - recalculate
                         }
                     } else {
-                        // Branch is cached and hasn't changed - use cached stats
-                        if let Some(branch_info) = state.branches.iter().find(|b| b.name == current_branch) {
-                            state.last_updated = branch_info.last_updated;
+                        false // No base branch - don't invalidate all
+                    };
+
+                    if base_branch_changed {
+                        // Base branch changed - recalculate ALL branches
+                        let mut new_branches = Vec::new();
+                        let mut latest_updated = state.last_updated;
+
+                        // Recalculate all cached branches
+                        for cached_branch in &state.branches {
+                            match get_branch_info_with_stats(&repo_path, &cached_branch.name, &config.users) {
+                                Ok(branch_info) => {
+                                    if branch_info.last_updated > latest_updated {
+                                        latest_updated = branch_info.last_updated;
+                                    }
+                                    new_branches.push(branch_info);
+                                }
+                                Err(e) => {
+                                    eprintln!("Warning: Could not recalculate stats for branch '{}' in '{}': {}",
+                                             cached_branch.name, repo_config.name, e);
+                                }
+                            }
+                        }
+
+                        // Update state with recalculated branches
+                        state.branches = new_branches;
+                        state.last_updated = latest_updated;
+                        let _ = db.save_repo_state(&state);
+                    } else {
+                        // Base branch hasn't changed - only check current branch
+                        let cached_branch = state.branches.iter().find(|b| b.name == current_branch);
+                        let current_sha = get_branch_commit_sha(&repo_path, &current_branch).ok();
+
+                        let needs_recalculation = if let Some(cached) = cached_branch {
+                            // Branch exists in cache - check if it has changed
+                            match (&cached.last_commit_sha, &current_sha) {
+                                (Some(cached_sha), Some(cur_sha)) => cached_sha != cur_sha,
+                                _ => true, // Recalculate if we can't compare SHAs
+                            }
+                        } else {
+                            // Branch not in cache - needs calculation
+                            true
+                        };
+
+                        if needs_recalculation {
+                            // Calculate or recalculate stats for this branch
+                            match get_branch_info_with_stats(&repo_path, &current_branch, &config.users) {
+                                Ok(branch_info) => {
+                                    // Remove old cached version if it exists
+                                    state.branches.retain(|b| b.name != current_branch);
+
+                                    // Add updated branch info
+                                    state.branches.push(branch_info.clone());
+
+                                    // Update state's last_updated to this branch's last_updated
+                                    state.last_updated = branch_info.last_updated;
+
+                                    // Save updated state back to database
+                                    let _ = db.save_repo_state(&state);
+                                }
+                                Err(e) => {
+                                    eprintln!("Warning: Could not calculate stats for branch '{}' in '{}': {}",
+                                             current_branch, repo_config.name, e);
+                                }
+                            }
+                        } else {
+                            // Branch is cached and hasn't changed - use cached stats
+                            if let Some(branch_info) = state.branches.iter().find(|b| b.name == current_branch) {
+                                state.last_updated = branch_info.last_updated;
+                            }
                         }
                     }
                 }
