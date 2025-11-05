@@ -523,6 +523,16 @@ pub fn collect_all_author_identities(repo_path: &Path) -> Result<HashSet<AuthorI
     Ok(identities)
 }
 
+/// Get the current commit SHA for a branch
+pub fn get_branch_commit_sha(repo_path: &Path, branch_name: &str) -> Result<String> {
+    let repo = Repository::open(repo_path)?;
+    let branch = repo.find_branch(branch_name, BranchType::Local)?;
+    let reference = branch.get();
+    let oid = reference.target()
+        .with_context(|| format!("Branch '{}' has no target", branch_name))?;
+    Ok(oid.to_string())
+}
+
 /// Get branch info with stats for a specific branch
 /// This is used for on-demand caching when status command encounters a new current branch
 pub fn get_branch_info_with_stats(
@@ -546,16 +556,30 @@ pub fn get_branch_info_with_stats(
     let (commit_stats, last_sha, last_updated) =
         collect_branch_stats(&repo, branch_name, branch_oid, user_aliases)?;
 
-    // Calculate owner based on commit stats
-    let temp_branch = BranchInfo {
-        name: branch_name.to_string(),
-        owner: String::new(), // Will be calculated
-        last_updated,
-        commit_stats: commit_stats.clone(),
-        last_commit_sha: Some(last_sha.clone()),
+    // Calculate owner based on commit stats, or use current user if no commits
+    let owner = if commit_stats.is_empty() {
+        // No commits on this branch yet - infer owner as current git user
+        match get_current_user() {
+            Ok(user_name) => {
+                // Normalize the user name through the alias system
+                normalize_author(&user_name, user_aliases)
+            }
+            Err(_) => {
+                // Fallback if we can't get git user
+                "Unknown".to_string()
+            }
+        }
+    } else {
+        // Use commit stats to calculate owner
+        let temp_branch = BranchInfo {
+            name: branch_name.to_string(),
+            owner: String::new(), // Will be calculated
+            last_updated,
+            commit_stats: commit_stats.clone(),
+            last_commit_sha: Some(last_sha.clone()),
+        };
+        temp_branch.calculate_owner()
     };
-
-    let owner = temp_branch.calculate_owner();
 
     Ok(BranchInfo {
         name: branch_name.to_string(),
@@ -662,16 +686,30 @@ pub fn refresh_repo_state(
         let (commit_stats, last_sha, last_updated) =
             collect_branch_stats(&repo, &name, branch_oid, user_aliases)?;
 
-        // Calculate owner based on commit stats
-        let temp_branch = BranchInfo {
-            name: name.clone(),
-            owner: String::new(), // Will be calculated
-            last_updated,
-            commit_stats: commit_stats.clone(),
-            last_commit_sha: Some(last_sha.clone()),
+        // Calculate owner based on commit stats, or use current user if no commits
+        let owner = if commit_stats.is_empty() {
+            // No commits on this branch yet - infer owner as current git user
+            match get_current_user() {
+                Ok(user_name) => {
+                    // Normalize the user name through the alias system
+                    normalize_author(&user_name, user_aliases)
+                }
+                Err(_) => {
+                    // Fallback if we can't get git user
+                    "Unknown".to_string()
+                }
+            }
+        } else {
+            // Use commit stats to calculate owner
+            let temp_branch = BranchInfo {
+                name: name.clone(),
+                owner: String::new(), // Will be calculated
+                last_updated,
+                commit_stats: commit_stats.clone(),
+                last_commit_sha: Some(last_sha.clone()),
+            };
+            temp_branch.calculate_owner()
         };
-
-        let owner = temp_branch.calculate_owner();
 
         branches.push(BranchInfo {
             name,
@@ -709,7 +747,7 @@ pub fn pull_repo(repo_path: &Path, debug: bool) -> Result<String> {
 
     // Load config for credentials
     use crate::models::Config;
-    let config = Config::load(".mgitconfig.json").unwrap_or_else(|_| Config {
+    let config = Config::load_from_project().unwrap_or_else(|_| Config {
         repositories: Vec::new(),
         tasks: Vec::new(),
         shells: Default::default(),
@@ -771,7 +809,7 @@ pub fn push_repo(repo_path: &Path, debug: bool) -> Result<String> {
 
     // Load config for credentials
     use crate::models::Config;
-    let config = Config::load(".mgitconfig.json").unwrap_or_else(|_| Config {
+    let config = Config::load_from_project().unwrap_or_else(|_| Config {
         repositories: Vec::new(),
         tasks: Vec::new(),
         shells: Default::default(),
@@ -815,7 +853,6 @@ pub fn get_repo_url(repo_path: &Path) -> Result<String> {
 }
 
 /// Get the current git user's name from global config
-#[allow(dead_code)]
 pub fn get_current_user() -> Result<String> {
     let config = git2::Config::open_default()?;
     let name = config

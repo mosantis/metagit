@@ -9,7 +9,7 @@ use crate::utils::git::{collect_all_author_identities, refresh_repo_state, Autho
 use crate::utils::icons;
 
 pub fn refresh_command() -> Result<()> {
-    let mut config = Config::load(".mgitconfig.json")?;
+    let mut config = Config::load_from_project()?;
     let db = StateDb::open(".mgitdb")?;
 
     let folder_icon = icons::files::folder();

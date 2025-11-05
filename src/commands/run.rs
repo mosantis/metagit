@@ -41,7 +41,7 @@ fn display_task_header(task_name: &str, step_num: usize, total_steps: usize, cmd
 }
 
 pub fn run_command(task_name: Option<&str>, detailed: bool) -> Result<()> {
-    let config = Config::load(".mgitconfig.json")?;
+    let config = Config::load_from_project()?;
 
     // If no task name provided, list all available tasks
     if task_name.is_none() {

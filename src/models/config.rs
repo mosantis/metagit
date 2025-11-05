@@ -108,6 +108,56 @@ impl Config {
         dirs::home_dir().map(|home| home.join(".mgitconfig.json"))
     }
 
+    /// Search for .mgitconfig.json starting from current directory and walking up
+    /// Stops at $HOME (does not use $HOME/.mgitconfig.json as project config)
+    pub fn find_project_config() -> Option<std::path::PathBuf> {
+        use std::env;
+
+        // Get home directory to know when to stop
+        let home_dir = dirs::home_dir()?;
+
+        // Start from current directory
+        let mut current_dir = env::current_dir().ok()?;
+
+        loop {
+            // Check if .mgitconfig.json exists in current directory
+            let config_path = current_dir.join(".mgitconfig.json");
+            if config_path.exists() {
+                // Don't use $HOME/.mgitconfig.json as project config
+                if current_dir != home_dir {
+                    return Some(config_path);
+                }
+            }
+
+            // Try to go up one directory
+            match current_dir.parent() {
+                Some(parent) => {
+                    // Stop if we've reached home directory
+                    if current_dir == home_dir {
+                        break;
+                    }
+                    current_dir = parent.to_path_buf();
+                }
+                None => break, // Reached filesystem root
+            }
+        }
+
+        None
+    }
+
+    /// Load configuration by discovering project config (searching upward from current directory)
+    /// Falls back to global config if no project config is found
+    pub fn load_from_project() -> anyhow::Result<Self> {
+        // Try to find project config by searching upward
+        if let Some(project_config_path) = Self::find_project_config() {
+            // Use the discovered project config path
+            return Self::load(project_config_path.to_str().unwrap_or(".mgitconfig.json"));
+        }
+
+        // No project config found - error out
+        anyhow::bail!("No .mgitconfig.json found in current directory or parent directories.\nRun 'mgit init' to create one.")
+    }
+
     /// Load configuration with fallback hierarchy:
     /// 1. Try local project config
     /// 2. If not found or if only loading shells, try global config

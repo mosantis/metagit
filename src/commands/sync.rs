@@ -6,7 +6,7 @@ use crate::models::Config;
 use crate::utils::{pull_repo, push_repo};
 
 pub fn sync_command(debug: bool) -> Result<()> {
-    let config = Config::load(".mgitconfig.json")?;
+    let config = Config::load_from_project()?;
 
     if debug {
         println!("{}", "🔍 DEBUG MODE ENABLED".bright_cyan().bold());
