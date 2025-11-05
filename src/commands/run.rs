@@ -2,7 +2,6 @@ use crate::models::Config;
 use crate::utils::{execute_script, icons, ScriptType};
 use anyhow::{anyhow, Result};
 use colored::*;
-use std::path::Path;
 use terminal_size::{terminal_size, Width};
 
 /// Display a task execution header with black text on light grey background
@@ -131,7 +130,7 @@ pub fn run_command(task_name: Option<&str>, detailed: bool) -> Result<()> {
 
     // Execute tasks sequentially
     for (step_idx, step) in steps_to_run.iter().enumerate() {
-        let repo_path = Path::new(&step.repo);
+        let repo_path = config.resolve_repo_path(&step.repo);
 
         // Build command display string
         let args_display = step.args.join(" ");
@@ -171,7 +170,7 @@ pub fn run_command(task_name: Option<&str>, detailed: bool) -> Result<()> {
             script_type,
             &step.cmd,
             &step.args,
-            repo_path,
+            &repo_path,
             &config.shells,
         ) {
             Ok(mut child) => {

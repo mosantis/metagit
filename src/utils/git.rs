@@ -753,6 +753,7 @@ pub fn pull_repo(repo_path: &Path, debug: bool) -> Result<String> {
         shells: Default::default(),
         credentials: HashMap::new(),
         users: HashMap::new(),
+        config_dir: None,
     });
 
     // Get remote URL
@@ -815,6 +816,7 @@ pub fn push_repo(repo_path: &Path, debug: bool) -> Result<String> {
         shells: Default::default(),
         credentials: HashMap::new(),
         users: HashMap::new(),
+        config_dir: None,
     });
 
     // Get remote URL

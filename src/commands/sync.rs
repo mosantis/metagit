@@ -1,6 +1,5 @@
 use anyhow::Result;
 use colored::*;
-use std::path::Path;
 
 use crate::models::Config;
 use crate::utils::{pull_repo, push_repo};
@@ -16,7 +15,7 @@ pub fn sync_command(debug: bool) -> Result<()> {
     println!("Syncing repositories (pull & push)...\n");
 
     for repo_config in &config.repositories {
-        let repo_path = Path::new(&repo_config.name);
+        let repo_path = config.resolve_repo_path(&repo_config.name);
 
         if !repo_path.exists() {
             println!("{:<30} {}",repo_config.name.yellow(), "not found".red());
@@ -26,7 +25,7 @@ pub fn sync_command(debug: bool) -> Result<()> {
         print!("{:<30} ", repo_config.name);
 
         // Pull first
-        match pull_repo(repo_path, debug) {
+        match pull_repo(&repo_path, debug) {
             Ok(msg) => print!("pull: {} ", msg.green()),
             Err(e) => {
                 println!("pull {}: {}", "failed".red(), e);
@@ -35,7 +34,7 @@ pub fn sync_command(debug: bool) -> Result<()> {
         }
 
         // Then push
-        match push_repo(repo_path, debug) {
+        match push_repo(&repo_path, debug) {
             Ok(msg) => println!("| push: {}", msg.green()),
             Err(e) => println!("| push {}: {}", "failed".red(), e),
         }

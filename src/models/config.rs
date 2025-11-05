@@ -15,6 +15,10 @@ pub struct Config {
     /// Example: "John" -> ["John Crammer", "JC", "john.crammer@company.com"]
     #[serde(default)]
     pub users: HashMap<String, Vec<String>>,
+    /// Directory where the config file was loaded from (used to resolve relative paths)
+    /// Not serialized - this is metadata about where we loaded from
+    #[serde(skip)]
+    pub config_dir: Option<std::path::PathBuf>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -108,6 +112,16 @@ impl Config {
         dirs::home_dir().map(|home| home.join(".mgitconfig.json"))
     }
 
+    /// Resolve a repository path relative to the config file's directory
+    /// If config_dir is not set, returns the path as-is
+    pub fn resolve_repo_path(&self, repo_name: &str) -> std::path::PathBuf {
+        if let Some(config_dir) = &self.config_dir {
+            config_dir.join(repo_name)
+        } else {
+            std::path::PathBuf::from(repo_name)
+        }
+    }
+
     /// Search for .mgitconfig.json starting from current directory and walking up
     /// Stops at $HOME (does not use $HOME/.mgitconfig.json as project config)
     pub fn find_project_config() -> Option<std::path::PathBuf> {
@@ -163,10 +177,16 @@ impl Config {
     /// 2. If not found or if only loading shells, try global config
     /// 3. Fall back to defaults
     pub fn load(path: &str) -> anyhow::Result<Self> {
+        // Get the directory containing the config file for resolving relative paths
+        let config_path = std::path::Path::new(path);
+        let config_dir = config_path.parent().map(|p| p.to_path_buf());
+
         // Try to load local config
-        let local_config = if std::path::Path::new(path).exists() {
+        let local_config = if config_path.exists() {
             let content = std::fs::read_to_string(path)?;
-            Some(serde_json::from_str::<Config>(&content)?)
+            let mut config: Config = serde_json::from_str(&content)?;
+            config.config_dir = config_dir.clone();
+            Some(config)
         } else {
             None
         };

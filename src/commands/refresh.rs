@@ -1,7 +1,6 @@
 use anyhow::Result;
 use colored::Colorize;
 use std::collections::HashSet;
-use std::path::Path;
 
 use crate::db::StateDb;
 use crate::models::Config;
@@ -23,7 +22,7 @@ pub fn refresh_command() -> Result<()> {
     let mut all_identities = HashSet::new();
 
     for repo_config in &config.repositories {
-        let repo_path = Path::new(&repo_config.name);
+        let repo_path = config.resolve_repo_path(&repo_config.name);
 
         if !repo_path.exists() {
             eprintln!(
@@ -37,14 +36,14 @@ pub fn refresh_command() -> Result<()> {
         }
 
         // Collect author identities from this repository
-        if let Ok(identities) = collect_all_author_identities(repo_path) {
+        if let Ok(identities) = collect_all_author_identities(&repo_path) {
             all_identities.extend(identities);
         }
 
         // Get previous state from database for incremental updates
         let previous_state = db.get_repo_state(&repo_config.name).ok().flatten();
 
-        match refresh_repo_state(repo_path, &repo_config.name, previous_state.as_ref(), &config.users) {
+        match refresh_repo_state(&repo_path, &repo_config.name, previous_state.as_ref(), &config.users) {
             Ok(state) => {
                 // Save to database
                 db.save_repo_state(&state)?;

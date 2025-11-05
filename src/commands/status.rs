@@ -37,7 +37,7 @@ pub fn status_command(detailed: bool, all: bool) -> Result<()> {
 
     // Collect all repository states
     for repo_config in &config.repositories {
-        let repo_path = Path::new(&repo_config.name);
+        let repo_path = config.resolve_repo_path(&repo_config.name);
 
         if !repo_path.exists() {
             eprintln!("Warning: Repository '{}' not found", repo_config.name);
@@ -52,7 +52,7 @@ pub fn status_command(detailed: bool, all: bool) -> Result<()> {
             }
             _ => {
                 // Fall back to reading from git if no database entry
-                match get_repo_state(repo_path, &repo_config.name) {
+                match get_repo_state(&repo_path, &repo_config.name) {
                     Ok(state) => {
                         // Save to database
                         let _ = db.save_repo_state(&state);
@@ -68,7 +68,7 @@ pub fn status_command(detailed: bool, all: bool) -> Result<()> {
 
         // SMART CACHING: Always update current_branch from live git state
         // If the current branch is not in our cache, calculate its stats and add it
-        match get_repo_state(repo_path, &repo_config.name) {
+        match get_repo_state(&repo_path, &repo_config.name) {
             Ok(live_state) => {
                 let current_branch = live_state.current_branch;
 
@@ -82,7 +82,7 @@ pub fn status_command(detailed: bool, all: bool) -> Result<()> {
                     let cached_branch = state.branches.iter().find(|b| b.name == current_branch);
 
                     // Get current commit SHA for this branch
-                    let current_sha = get_branch_commit_sha(repo_path, &current_branch).ok();
+                    let current_sha = get_branch_commit_sha(&repo_path, &current_branch).ok();
 
                     let needs_recalculation = if let Some(cached) = cached_branch {
                         // Branch exists in cache - check if it has changed
@@ -97,7 +97,7 @@ pub fn status_command(detailed: bool, all: bool) -> Result<()> {
 
                     if needs_recalculation {
                         // Calculate or recalculate stats for this branch
-                        match get_branch_info_with_stats(repo_path, &current_branch, &config.users) {
+                        match get_branch_info_with_stats(&repo_path, &current_branch, &config.users) {
                             Ok(branch_info) => {
                                 // Remove old cached version if it exists
                                 state.branches.retain(|b| b.name != current_branch);
