@@ -414,17 +414,25 @@ pub fn get_repo_state(repo_path: &Path, repo_name: &str) -> Result<RepoState> {
         let (branch, _) = branch?;
         let name = branch.name()?.unwrap_or("(invalid utf8)").to_string();
 
-        // Get the last commit time for this branch
+        // Get the last commit time and author for this branch
         let reference = branch.get();
         let commit = reference.peel_to_commit()?;
         let time = commit.time();
         let timestamp = time.seconds();
         let last_updated = DateTime::from_timestamp(timestamp, 0).unwrap_or_else(Utc::now);
 
-        // Infer owner from current git user (same logic as refresh/cache)
-        let owner = match get_current_user() {
-            Ok(user_name) => normalize_author(&user_name, &config.users),
-            Err(_) => "Unknown".to_string(),
+        // Use the commit author as the owner
+        let author = commit.author();
+        let author_name = author.name().unwrap_or("Unknown");
+        let author_email = author.email().unwrap_or("");
+
+        // Try to normalize using name first, then email if name doesn't match
+        let normalized_name = normalize_author(author_name, &config.users);
+        let owner = if normalized_name == author_name && !author_email.is_empty() {
+            // Name wasn't normalized, try email
+            normalize_author(author_email, &config.users)
+        } else {
+            normalized_name
         };
 
         branches.push(BranchInfo {
@@ -560,18 +568,21 @@ pub fn get_branch_info_with_stats(
     let (commit_stats, last_sha, last_updated) =
         collect_branch_stats(&repo, branch_name, branch_oid, user_aliases)?;
 
-    // Calculate owner based on commit stats, or use current user if no commits
+    // Calculate owner based on commit stats, or use branch HEAD commit author if no commits
     let owner = if commit_stats.is_empty() {
-        // No commits on this branch yet - infer owner as current git user
-        match get_current_user() {
-            Ok(user_name) => {
-                // Normalize the user name through the alias system
-                normalize_author(&user_name, user_aliases)
-            }
-            Err(_) => {
-                // Fallback if we can't get git user
-                "Unknown".to_string()
-            }
+        // No unmerged commits - use the author of the commit the branch points to
+        let branch_head_commit = repo.find_commit(branch_oid)?;
+        let author = branch_head_commit.author();
+        let author_name = author.name().unwrap_or("Unknown");
+        let author_email = author.email().unwrap_or("");
+
+        // Try to normalize using name first, then email if name doesn't match
+        let normalized_name = normalize_author(author_name, user_aliases);
+        if normalized_name == author_name && !author_email.is_empty() {
+            // Name wasn't normalized, try email
+            normalize_author(author_email, user_aliases)
+        } else {
+            normalized_name
         }
     } else {
         // Use commit stats to calculate owner
@@ -623,7 +634,12 @@ fn collect_branch_stats(
     // because the main branch can change, making the old counts invalid.
     // We always recalculate unmerged commits from scratch.
 
-    let mut last_commit_time = Utc::now();
+    // Get the branch HEAD commit for fallback timestamp (used when no unmerged commits)
+    let branch_head_commit = repo.find_commit(branch_oid)?;
+    let branch_head_time = branch_head_commit.time();
+    let branch_head_timestamp = DateTime::from_timestamp(branch_head_time.seconds(), 0).unwrap_or_else(Utc::now);
+
+    let mut last_commit_time = branch_head_timestamp;
     let mut last_sha = branch_oid.to_string();
     let mut first_commit = true;
 
@@ -649,7 +665,7 @@ fn collect_branch_stats(
         // Increment commit count for this author
         *commit_stats.entry(normalized_name).or_insert(0) += 1;
 
-        // Capture the time of the first (most recent) commit
+        // Capture the time of the first (most recent) unmerged commit
         if first_commit {
             let time = commit.time();
             last_commit_time = DateTime::from_timestamp(time.seconds(), 0).unwrap_or_else(Utc::now);
@@ -690,18 +706,21 @@ pub fn refresh_repo_state(
         let (commit_stats, last_sha, last_updated) =
             collect_branch_stats(&repo, &name, branch_oid, user_aliases)?;
 
-        // Calculate owner based on commit stats, or use current user if no commits
+        // Calculate owner based on commit stats, or use branch HEAD commit author if no commits
         let owner = if commit_stats.is_empty() {
-            // No commits on this branch yet - infer owner as current git user
-            match get_current_user() {
-                Ok(user_name) => {
-                    // Normalize the user name through the alias system
-                    normalize_author(&user_name, user_aliases)
-                }
-                Err(_) => {
-                    // Fallback if we can't get git user
-                    "Unknown".to_string()
-                }
+            // No unmerged commits - use the author of the commit the branch points to
+            let branch_head_commit = repo.find_commit(branch_oid)?;
+            let author = branch_head_commit.author();
+            let author_name = author.name().unwrap_or("Unknown");
+            let author_email = author.email().unwrap_or("");
+
+            // Try to normalize using name first, then email if name doesn't match
+            let normalized_name = normalize_author(author_name, user_aliases);
+            if normalized_name == author_name && !author_email.is_empty() {
+                // Name wasn't normalized, try email
+                normalize_author(author_email, user_aliases)
+            } else {
+                normalized_name
             }
         } else {
             // Use commit stats to calculate owner
@@ -859,6 +878,7 @@ pub fn get_repo_url(repo_path: &Path) -> Result<String> {
 }
 
 /// Get the current git user's name from global config
+#[allow(dead_code)]
 pub fn get_current_user() -> Result<String> {
     let config = git2::Config::open_default()?;
     let name = config

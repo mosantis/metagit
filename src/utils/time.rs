@@ -19,10 +19,12 @@ pub fn format_relative_time(dt: DateTime<Utc>) -> String {
             return dt.format("%A %I%p").to_string().to_lowercase();
         }
         return format!("{} day{} ago", days, if days == 1 { "" } else { "s" });
-    } else if duration.num_weeks() < 4 {
+    } else if duration.num_days() < 60 {
+        // Show weeks for anything less than 2 months
         let weeks = duration.num_weeks();
         return format!("{} week{} ago", weeks, if weeks == 1 { "" } else { "s" });
     } else if duration.num_days() < 365 {
+        // Show months only when >= 2 months
         let months = duration.num_days() / 30;
         return format!("{} month{} ago", months, if months == 1 { "" } else { "s" });
     } else {
