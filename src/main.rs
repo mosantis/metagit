@@ -23,11 +23,7 @@ enum Commands {
 
     /// Show status of all repositories
     Status {
-        /// Show detailed status (all branches with activity in last 30 days)
-        #[arg(short, long)]
-        detailed: bool,
-
-        /// Show all branches regardless of activity
+        /// Show all branches (not just current branch)
         #[arg(short, long)]
         all: bool,
     },
@@ -72,7 +68,7 @@ fn main() -> Result<()> {
 
     match cli.command {
         Commands::Init => init_command()?,
-        Commands::Status { detailed, all } => status_command(detailed, all)?,
+        Commands::Status { all } => status_command(all)?,
         Commands::Pull { debug } => pull_command(debug)?,
         Commands::Push { debug } => push_command(debug)?,
         Commands::Sync { debug } => sync_command(debug)?,

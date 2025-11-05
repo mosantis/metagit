@@ -26,12 +26,9 @@ fn format_owner(owner: &str) -> String {
     }
 }
 
-pub fn status_command(detailed: bool, all: bool) -> Result<()> {
+pub fn status_command(all: bool) -> Result<()> {
     let config = Config::load_from_project()?;
     let db = StateDb::open(".mgitdb")?;
-
-    // -a flag always forces detailed view
-    let detailed = detailed || all;
 
     let mut all_states = Vec::new();
 
@@ -137,7 +134,7 @@ pub fn status_command(detailed: bool, all: bool) -> Result<()> {
 
     // Filter branches based on -a flag
     if !all {
-        // Without -a: show only current branch (for both simple and detailed views)
+        // Without -a: show only current branch
         for state in all_states.iter_mut() {
             let current_branch_name = state.current_branch.clone();
             state.branches.retain(|b| b.name == current_branch_name);
@@ -145,82 +142,49 @@ pub fn status_command(detailed: bool, all: bool) -> Result<()> {
     }
     // With -a: show all branches (no filtering)
 
-    if detailed {
-        // Get icons for header
-        let folder_icon = icons::files::folder();
-        let commit_icon = icons::git::commit();
-        let owner_icon = icons::git::owner();
-        let time_icon = icons::status::info();
-        let branch_icon = icons::git::branch();
+    // Get icons for header
+    let folder_icon = icons::files::folder();
+    let commit_icon = icons::git::commit();
+    let owner_icon = icons::git::owner();
+    let time_icon = icons::status::info();
+    let branch_icon = icons::git::branch();
 
-        // Print header for detailed view with COMMITS and OWNER columns
-        println!(
-            "{:<28} {:<10} {:<25} {:<20} {}",
-            format!("{} REPOSITORY", folder_icon).bold(),
-            format!("{} COMMITS", commit_icon).bold(),
-            format!("{} OWNER", owner_icon).bold(),
-            format!("{} UPDATED", time_icon).bold(),
-            format!("{} BRANCH", branch_icon).bold()
-        );
+    // Print header with all columns
+    println!(
+        "{:<28} {:<10} {:<25} {:<20} {}",
+        format!("{} REPOSITORY", folder_icon).bold(),
+        format!("{} COMMITS", commit_icon).bold(),
+        format!("{} OWNER", owner_icon).bold(),
+        format!("{} UPDATED", time_icon).bold(),
+        format!("{} BRANCH", branch_icon).bold()
+    );
 
-        // Detailed view: show all branches
-        for state in all_states {
-            let repo_path = Path::new(&state.name);
+    // Display all repositories
+    for state in all_states {
+        let repo_path = Path::new(&state.name);
 
-            for (idx, branch) in state.branches.iter().enumerate() {
-                let repo_name = if idx == 0 {
-                    state.name.clone()
-                } else {
-                    String::new()
-                };
-
-                // Get branch status for coloring
-                let branch_status =
-                    get_branch_status(repo_path, &branch.name).unwrap_or(BranchStatus::Synced);
-
-                let branch_display = color_branch(&branch.name, branch_status).to_string();
-
-                // Get commit count for the owner
-                let commit_count = branch.get_owner_commit_count();
-
-                println!(
-                    "  {:<28} {:<10} {:<25} {:<20} {}",
-                    repo_name,
-                    commit_count,
-                    branch.owner, //format_owner(&branch.owner),
-                    format_relative_time(branch.last_updated),
-                    branch_display
-                );
-            }
-        }
-    } else {
-        // Get icons for header
-        let folder_icon = icons::files::folder();
-        let time_icon = icons::status::info();
-        let branch_icon = icons::git::branch();
-
-        // Print header for simple view without COMMITS or OWNER columns
-        println!(
-            "{:<28} {:<20} {}",
-            format!("{} REPOSITORY", folder_icon).bold(),
-            format!("{} UPDATED", time_icon).bold(),
-            format!("{} BRANCH", branch_icon).bold()
-        );
-
-        // Simple view: show only current branch
-        for state in all_states {
-            let repo_path = Path::new(&state.name);
+        for (idx, branch) in state.branches.iter().enumerate() {
+            let repo_name = if idx == 0 {
+                state.name.clone()
+            } else {
+                String::new()
+            };
 
             // Get branch status for coloring
             let branch_status =
-                get_branch_status(repo_path, &state.current_branch).unwrap_or(BranchStatus::Synced);
+                get_branch_status(repo_path, &branch.name).unwrap_or(BranchStatus::Synced);
 
-            let branch_display = color_branch(&state.current_branch, branch_status).to_string();
+            let branch_display = color_branch(&branch.name, branch_status).to_string();
+
+            // Get commit count for the owner
+            let commit_count = branch.get_owner_commit_count();
 
             println!(
-                "  {:<28} {:<20} {}",
-                state.name,
-                format_relative_time(state.last_updated),
+                "  {:<28} {:<10} {:<25} {:<20} {}",
+                repo_name,
+                commit_count,
+                branch.owner,
+                format_relative_time(branch.last_updated),
                 branch_display
             );
         }
