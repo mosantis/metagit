@@ -29,8 +29,8 @@ pub struct AuthorIdentity {
 
 impl PartialEq for AuthorIdentity {
     fn eq(&self, other: &Self) -> bool {
-        self.name.to_lowercase() == other.name.to_lowercase() &&
-        self.email.to_lowercase() == other.email.to_lowercase()
+        self.name.to_lowercase() == other.name.to_lowercase()
+            && self.email.to_lowercase() == other.email.to_lowercase()
     }
 }
 
@@ -48,7 +48,9 @@ fn extract_hostname(url: &str) -> Option<String> {
     // Handle SSH URLs like git@github.com:org/repo.git
     if url.starts_with("git@") || url.starts_with("ssh://") {
         let without_prefix = url.strip_prefix("git@").unwrap_or(url);
-        let without_prefix = without_prefix.strip_prefix("ssh://").unwrap_or(without_prefix);
+        let without_prefix = without_prefix
+            .strip_prefix("ssh://")
+            .unwrap_or(without_prefix);
 
         if let Some(colon_pos) = without_prefix.find(':') {
             return Some(without_prefix[..colon_pos].to_string());
@@ -59,7 +61,8 @@ fn extract_hostname(url: &str) -> Option<String> {
 
     // Handle HTTPS URLs
     if url.starts_with("https://") || url.starts_with("http://") {
-        let without_protocol = url.strip_prefix("https://")
+        let without_protocol = url
+            .strip_prefix("https://")
             .or_else(|| url.strip_prefix("http://"))
             .unwrap_or(url);
 
@@ -194,10 +197,16 @@ fn validate_ssh_auth(
             );
 
             if !private_key.exists() {
-                error_msg.push_str(&format!("  • Private key missing: {}\n", private_key.display()));
+                error_msg.push_str(&format!(
+                    "  • Private key missing: {}\n",
+                    private_key.display()
+                ));
             }
             if !public_key.exists() {
-                error_msg.push_str(&format!("  • Public key missing: {}\n", public_key.display()));
+                error_msg.push_str(&format!(
+                    "  • Public key missing: {}\n",
+                    public_key.display()
+                ));
             }
 
             error_msg.push_str(&format!(
@@ -277,7 +286,11 @@ fn create_remote_callbacks<'a>(
         if credentials.is_empty() {
             debug_log!(debug, "No credentials configured in .mgitconfig.json");
         } else {
-            debug_log!(debug, "Configured credentials for: {:?}", credentials.keys().collect::<Vec<_>>());
+            debug_log!(
+                debug,
+                "Configured credentials for: {:?}",
+                credentials.keys().collect::<Vec<_>>()
+            );
         }
     }
 
@@ -289,14 +302,23 @@ fn create_remote_callbacks<'a>(
         let attempts = attempt_counter.get() + 1;
         attempt_counter.set(attempts);
 
-        debug_log!(debug, "Credentials requested for URL: {} (attempt {})", url, attempts);
+        debug_log!(
+            debug,
+            "Credentials requested for URL: {} (attempt {})",
+            url,
+            attempts
+        );
         debug_log!(debug, "Username from URL: {:?}", username_from_url);
         debug_log!(debug, "Allowed auth types: {:?}", allowed_types);
 
         // Prevent infinite loop - bail out after max attempts
         const MAX_ATTEMPTS: usize = 3;
         if attempts > MAX_ATTEMPTS {
-            debug_log!(debug, "❌ Maximum authentication attempts ({}) exceeded", MAX_ATTEMPTS);
+            debug_log!(
+                debug,
+                "❌ Maximum authentication attempts ({}) exceeded",
+                MAX_ATTEMPTS
+            );
             return Err(git2::Error::from_str(&format!(
                 "Authentication failed after {} attempts. Please check your SSH setup:\n\
                  1. Ensure SSH agent is running and has your key: ssh-add -l\n\
@@ -336,7 +358,11 @@ fn create_remote_callbacks<'a>(
                 if private_key.exists() {
                     debug_log!(debug, "✓ Private key exists");
                 } else {
-                    debug_log!(debug, "✗ Private key NOT FOUND at {}", private_key.display());
+                    debug_log!(
+                        debug,
+                        "✗ Private key NOT FOUND at {}",
+                        private_key.display()
+                    );
                 }
 
                 if public_key.exists() {
@@ -347,12 +373,7 @@ fn create_remote_callbacks<'a>(
 
                 if private_key.exists() {
                     debug_log!(debug, "Attempting SSH key authentication...");
-                    match Cred::ssh_key(
-                        username,
-                        Some(&public_key),
-                        &private_key,
-                        None,
-                    ) {
+                    match Cred::ssh_key(username, Some(&public_key), &private_key, None) {
                         Ok(cred) => {
                             debug_log!(debug, "✓ SSH key authentication succeeded");
                             return Ok(cred);
@@ -365,8 +386,16 @@ fn create_remote_callbacks<'a>(
                     debug_log!(debug, "Skipping SSH key auth (private key not found)");
                 }
             } else {
-                debug_log!(debug, "No credentials configured for hostname: {}", hostname);
-                debug_log!(debug, "Available configured hosts: {:?}", credentials.keys().collect::<Vec<_>>());
+                debug_log!(
+                    debug,
+                    "No credentials configured for hostname: {}",
+                    hostname
+                );
+                debug_log!(
+                    debug,
+                    "Available configured hosts: {:?}",
+                    credentials.keys().collect::<Vec<_>>()
+                );
             }
         } else {
             debug_log!(debug, "Failed to extract hostname from URL");
@@ -540,7 +569,8 @@ pub fn get_branch_commit_sha(repo_path: &Path, branch_name: &str) -> Result<Stri
     let repo = Repository::open(repo_path)?;
     let branch = repo.find_branch(branch_name, BranchType::Local)?;
     let reference = branch.get();
-    let oid = reference.target()
+    let oid = reference
+        .target()
         .with_context(|| format!("Branch '{}' has no target", branch_name))?;
     Ok(oid.to_string())
 }
@@ -556,12 +586,14 @@ pub fn get_branch_info_with_stats(
         .with_context(|| format!("Failed to open repository at {:?}", repo_path))?;
 
     // Find the branch
-    let branch = repo.find_branch(branch_name, BranchType::Local)
+    let branch = repo
+        .find_branch(branch_name, BranchType::Local)
         .with_context(|| format!("Branch '{}' not found", branch_name))?;
 
     // Get the branch reference
     let reference = branch.get();
-    let branch_oid = reference.target()
+    let branch_oid = reference
+        .target()
         .with_context(|| format!("Branch '{}' has no target", branch_name))?;
 
     // Collect commit stats
@@ -637,7 +669,8 @@ fn collect_branch_stats(
     // Get the branch HEAD commit for fallback timestamp (used when no unmerged commits)
     let branch_head_commit = repo.find_commit(branch_oid)?;
     let branch_head_time = branch_head_commit.time();
-    let branch_head_timestamp = DateTime::from_timestamp(branch_head_time.seconds(), 0).unwrap_or_else(Utc::now);
+    let branch_head_timestamp =
+        DateTime::from_timestamp(branch_head_time.seconds(), 0).unwrap_or_else(Utc::now);
 
     let mut last_commit_time = branch_head_timestamp;
     let mut last_sha = branch_oid.to_string();
@@ -922,10 +955,7 @@ pub fn has_uncommitted_changes(repo_path: &Path) -> Result<bool> {
 
         // Check for unstaged changes to tracked files (but NOT untracked files)
         if status.intersects(
-            Status::WT_MODIFIED
-                | Status::WT_DELETED
-                | Status::WT_TYPECHANGE
-                | Status::WT_RENAMED,
+            Status::WT_MODIFIED | Status::WT_DELETED | Status::WT_TYPECHANGE | Status::WT_RENAMED,
         ) {
             return Ok(true);
         }
@@ -1066,20 +1096,23 @@ fn check_and_fix_refs(refs_dir: &Path, result: &mut RepairResult) -> Result<()> 
                     let trimmed = content.trim();
                     if !is_valid_ref_content(trimmed) {
                         // Corrupted reference - remove it
-                        let rel_path = path.strip_prefix(refs_dir.parent().unwrap().parent().unwrap())
+                        let rel_path = path
+                            .strip_prefix(refs_dir.parent().unwrap().parent().unwrap())
                             .unwrap_or(&path)
                             .to_string_lossy()
                             .to_string();
 
-                        std::fs::remove_file(&path)
-                            .with_context(|| format!("Failed to remove corrupted ref: {}", rel_path))?;
+                        std::fs::remove_file(&path).with_context(|| {
+                            format!("Failed to remove corrupted ref: {}", rel_path)
+                        })?;
 
                         result.removed_corrupted_refs.push(rel_path);
                     }
                 }
                 Err(_) => {
                     // Cannot read file - likely corrupted
-                    let rel_path = path.strip_prefix(refs_dir.parent().unwrap().parent().unwrap())
+                    let rel_path = path
+                        .strip_prefix(refs_dir.parent().unwrap().parent().unwrap())
                         .unwrap_or(&path)
                         .to_string_lossy()
                         .to_string();
