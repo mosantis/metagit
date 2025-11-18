@@ -60,6 +60,10 @@ enum Commands {
         /// Show detailed task information
         #[arg(short, long)]
         detailed: bool,
+
+        /// Define variables for substitution (e.g., -DVAR1=value1 -DVAR2=value2)
+        #[arg(short = 'D', value_name = "VAR=VALUE")]
+        defines: Vec<String>,
     },
 }
 
@@ -73,7 +77,7 @@ fn main() -> Result<()> {
         Commands::Push { debug } => push_command(debug)?,
         Commands::Sync { debug } => sync_command(debug)?,
         Commands::Refresh => refresh_command()?,
-        Commands::Run { task_name, detailed } => run_command(task_name.as_deref(), detailed)?,
+        Commands::Run { task_name, detailed, defines } => run_command(task_name.as_deref(), detailed, defines)?,
     }
 
     Ok(())

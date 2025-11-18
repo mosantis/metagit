@@ -36,7 +36,8 @@
       "Bash(new.txt)",
       "Bash(git update-ref:*)",
       "Bash(README.md)",
-      "Bash(git reset:*)"
+      "Bash(git reset:*)",
+      "Bash(cargo test:*)"
     ],
     "deny": [],
     "ask": []

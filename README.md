@@ -24,6 +24,7 @@ A command-line tool written in Rust to enhance git functionality when dealing wi
 - **Debug mode**: Detailed logging for troubleshooting connection and credential issues
 - **User normalization**: Automatically discover and normalize author identities across repositories
 - **Task execution**: Define and execute custom tasks across multiple repositories with real-time progress
+- **Variable substitution**: Use environment variables, predefined variables (HOME, CWD, PROJECT_DIR), and user-defined variables in tasks
 - **Cross-platform support**: Platform-specific task steps for Windows, Linux, and macOS
 - **Configurable shells**: Choose your preferred shell executables (bash, zsh, pwsh, etc.)
 - **Global and project configuration**: Set user-wide defaults in `~/.mgitconfig.json`, override per-project
@@ -314,6 +315,132 @@ Scripts are automatically detected by extension, or you can specify the `type` f
   "cmd": "echo",
   "args": ["Building application..."]
 }
+```
+
+### Variable Substitution
+
+MetaGit supports variable substitution in task definitions, allowing you to use environment variables, predefined variables, and user-defined variables in your `cmd`, `args`, and `platform` fields.
+
+#### Variable Syntax
+
+Variables can be referenced using either syntax:
+- `$(VAR)` - Dollar sign with parentheses
+- `${VAR}` - Dollar sign with curly braces
+- `~` - Tilde expands to `$(HOME)` (only at the beginning of paths)
+
+#### Predefined Variables
+
+MetaGit provides several predefined variables:
+
+- `$(HOME)` - User's home directory
+- `$(CWD)` - Current working directory where `mgit` was invoked
+- `$(PROJECT_DIR)` - Directory containing the `.mgitconfig.json` file
+
+All environment variables are also available for use.
+
+#### User-Defined Variables
+
+You can define custom variables via the `-D` flag when running tasks:
+
+```bash
+mgit run build -DVERSION=1.2.3 -DENV=production
+```
+
+#### Examples
+
+**Using predefined variables:**
+```json
+{
+  "name": "deploy",
+  "steps": [
+    {
+      "repo": "app",
+      "type": "sh",
+      "cmd": "$(PROJECT_DIR)/scripts/deploy.sh",
+      "args": ["--config", "~/config/deploy.json"]
+    }
+  ]
+}
+```
+
+**Using environment variables:**
+```json
+{
+  "name": "build",
+  "steps": [
+    {
+      "repo": "backend",
+      "cmd": "build.sh",
+      "args": ["--output", "$(HOME)/builds"]
+    }
+  ]
+}
+```
+
+**Using user-defined variables:**
+```json
+{
+  "name": "release",
+  "steps": [
+    {
+      "repo": "app",
+      "cmd": "release.sh",
+      "args": ["--version", "$(VERSION)", "--env", "$(ENV)"]
+    }
+  ]
+}
+```
+
+Run with:
+```bash
+mgit run release -DVERSION=2.0.0 -DENV=staging
+```
+
+**Platform-specific with variables:**
+```json
+{
+  "name": "cross_build",
+  "steps": [
+    {
+      "platform": "$(BUILD_PLATFORM)",
+      "repo": "app",
+      "cmd": "build.sh",
+      "args": ["$(BUILD_FLAGS)"]
+    }
+  ]
+}
+```
+
+Run with:
+```bash
+mgit run cross_build -DBUILD_PLATFORM=linux -DBUILD_FLAGS=--release
+```
+
+**Mixed syntax example:**
+```json
+{
+  "name": "test",
+  "steps": [
+    {
+      "repo": "backend",
+      "cmd": "${PROJECT_DIR}/scripts/test.sh",
+      "args": ["--report-dir", "$(CWD)/reports", "--config", "~/test-config.json"]
+    }
+  ]
+}
+```
+
+#### Error Handling
+
+If you reference an undefined variable, MetaGit will display a clear error:
+```
+Error: Undefined variable: $(MISSING_VAR)
+```
+
+Invalid `-D` flag format will also produce an error:
+```bash
+mgit run build -DINVALID
+# Error: Invalid variable definition 'INVALID'. Expected format: VAR=VALUE
 ```
 
 ### Error Handling

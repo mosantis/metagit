@@ -1,5 +1,5 @@
 use crate::models::Config;
-use crate::utils::{execute_script, icons, ScriptType};
+use crate::utils::{execute_script, icons, ScriptType, VarContext};
 use anyhow::{anyhow, Result};
 use colored::*;
 use terminal_size::{terminal_size, Width};
@@ -39,7 +39,7 @@ fn display_task_header(task_name: &str, step_num: usize, total_steps: usize, cmd
     println!(); // Add a blank line after the header
 }
 
-pub fn run_command(task_name: Option<&str>, detailed: bool) -> Result<()> {
+pub fn run_command(task_name: Option<&str>, detailed: bool, defines: Vec<String>) -> Result<()> {
     let config = Config::load_from_project()?;
 
     // If no task name provided, list all available tasks
@@ -111,6 +111,15 @@ pub fn run_command(task_name: Option<&str>, detailed: bool) -> Result<()> {
 
     let task_name = task_name.unwrap();
 
+    // Get project directory for variable context
+    let project_dir = config
+        .config_dir
+        .as_ref()
+        .ok_or_else(|| anyhow!("Could not determine project directory"))?;
+
+    // Create variable context for substitution
+    let var_context = VarContext::new(project_dir, defines)?;
+
     // Find the task
     let task = config
         .tasks
@@ -119,12 +128,36 @@ pub fn run_command(task_name: Option<&str>, detailed: bool) -> Result<()> {
         .ok_or_else(|| anyhow!("Task '{}' not found", task_name))?;
 
     // Filter steps to only those that match the current platform
-    let steps_to_run: Vec<_> = task
-        .steps
-        .iter()
-        .filter(|step| step.should_run_on_current_platform())
-        .cloned()
-        .collect();
+    // and apply variable substitution
+    let mut steps_to_run = Vec::new();
+    for step in &task.steps {
+        // Apply variable substitution to platform field first
+        let substituted_platform = var_context.substitute(&step.platform)?;
+
+        // Check if should run on current platform using substituted value
+        let should_run = if substituted_platform == "all" {
+            true
+        } else {
+            let current_platform = std::env::consts::OS;
+            substituted_platform
+                .split(',')
+                .map(|s| s.trim())
+                .any(|p| p == current_platform || p == "all")
+        };
+
+        if should_run {
+            // Apply variable substitution to cmd and args
+            let mut substituted_step = step.clone();
+            substituted_step.cmd = var_context.substitute(&step.cmd)?;
+            substituted_step.args = step
+                .args
+                .iter()
+                .map(|arg| var_context.substitute(arg))
+                .collect::<Result<Vec<_>>>()?;
+            substituted_step.platform = substituted_platform;
+            steps_to_run.push(substituted_step);
+        }
+    }
 
     let total_steps = steps_to_run.len();
 
