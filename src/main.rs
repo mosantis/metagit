@@ -52,6 +52,18 @@ enum Commands {
     /// Refresh repository states and collect commit statistics
     Refresh,
 
+    /// Save current branches to a tag
+    Save {
+        /// Name of the tag to save branches to
+        tag: String,
+    },
+
+    /// Restore branches from a saved tag (use 'master' or 'main' to switch to default branch)
+    Restore {
+        /// Name of the tag to restore branches from
+        tag: String,
+    },
+
     /// Run a task defined in .mgitconfig.json (run without task name to list available tasks)
     Run {
         /// Name of the task to run (optional - omit to list all tasks)
@@ -77,6 +89,8 @@ fn main() -> Result<()> {
         Commands::Push { debug } => push_command(debug)?,
         Commands::Sync { debug } => sync_command(debug)?,
         Commands::Refresh => refresh_command()?,
+        Commands::Save { tag } => save_command(&tag)?,
+        Commands::Restore { tag } => restore_command(&tag)?,
         Commands::Run { task_name, detailed, defines } => run_command(task_name.as_deref(), detailed, defines)?,
     }
 

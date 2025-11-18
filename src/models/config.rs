@@ -15,6 +15,10 @@ pub struct Config {
     /// Example: "John" -> ["John Crammer", "JC", "john.crammer@company.com"]
     #[serde(default)]
     pub users: HashMap<String, Vec<String>>,
+    /// Saved tags: maps tag name to repository branches
+    /// Example: "release-1.0" -> {"frontend" -> "release/1.0", "backend" -> "release/1.0"}
+    #[serde(default)]
+    pub tags: HashMap<String, HashMap<String, String>>,
     /// Directory where the config file was loaded from (used to resolve relative paths)
     /// Not serialized - this is metadata about where we loaded from
     #[serde(skip)]

@@ -56,6 +56,7 @@ pub fn init_command() -> Result<()> {
         shells: Default::default(),
         credentials: HashMap::new(),
         users: HashMap::new(),
+        tags: HashMap::new(),
         config_dir: None,
     };
 

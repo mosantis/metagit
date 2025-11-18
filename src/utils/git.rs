@@ -6,7 +6,7 @@ use std::cell::Cell;
 use std::collections::{HashMap, HashSet};
 use std::env;
 use std::path::{Path, PathBuf};
-use std::process::Command;
+//use std::process::Command;
 
 use crate::models::{BranchInfo, RepoState};
 
@@ -428,6 +428,7 @@ pub fn get_repo_state(repo_path: &Path, repo_name: &str) -> Result<RepoState> {
         shells: Default::default(),
         credentials: HashMap::new(),
         users: HashMap::new(),
+        tags: HashMap::new(),
         config_dir: None,
     });
 
@@ -809,6 +810,7 @@ pub fn pull_repo(repo_path: &Path, debug: bool) -> Result<String> {
         shells: Default::default(),
         credentials: HashMap::new(),
         users: HashMap::new(),
+        tags: HashMap::new(),
         config_dir: None,
     });
 
@@ -872,6 +874,7 @@ pub fn push_repo(repo_path: &Path, debug: bool) -> Result<String> {
         shells: Default::default(),
         credentials: HashMap::new(),
         users: HashMap::new(),
+        tags: HashMap::new(),
         config_dir: None,
     });
 

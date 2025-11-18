@@ -20,6 +20,7 @@ A command-line tool written in Rust to enhance git functionality when dealing wi
 
 - **Multi-repository management**: Manage multiple git repositories from a single configuration
 - **Git operations**: Pull, push, sync, and check status across all repositories
+- **Save and restore branch states**: Save current branches to named tags and restore them later (reserved tags `master`/`main` for quick switching)
 - **SSH authentication**: Configure SSH keys per Git hosting service for private repository access
 - **Debug mode**: Detailed logging for troubleshooting connection and credential issues
 - **User normalization**: Automatically discover and normalize author identities across repositories
@@ -245,6 +246,135 @@ Already up-to-date
 - Understanding which authentication method is being used
 
 **Note**: MetaGit uses vendored libssh2 and does **not** read `~/.ssh/config`. Use SSH agent or configure credentials in `.mgitconfig.json`. See [SSH Credentials Configuration](#ssh-credentials-configuration) for details.
+
+### Save and Restore Branch States
+
+MetaGit allows you to save and restore the current branch of all repositories using tags.
+
+#### Save Current Branches
+
+Save the current branch state of all repositories to a named tag:
+
+```bash
+mgit save <tag-name>
+```
+
+Example:
+```bash
+# Before starting a new feature, save your current state
+mgit save before-feature-x
+
+# Output:
+# 🕒 Saving current branches to tag 'before-feature-x'...
+#
+#   ✓ frontend - main
+#   ✓ backend - develop
+#   ✓ shared-lib - main
+#
+# ✓ Tag 'before-feature-x' saved successfully! (3 repositories, 0 errors)
+```
+
+The tag is saved to `.mgitconfig.json` in the `tags` section:
+
+```json
+{
+  "tags": {
+    "before-feature-x": {
+      "frontend": "main",
+      "backend": "develop",
+      "shared-lib": "main"
+    }
+  }
+}
+```
+
+#### Restore Saved Branches
+
+Restore all repositories to a previously saved branch state:
+
+```bash
+mgit restore <tag-name>
+```
+
+Example:
+```bash
+# Restore to the saved state
+mgit restore before-feature-x
+
+# Output:
+# 🕒 Restoring branches from tag 'before-feature-x'...
+#
+#   ✓ frontend - already on main
+#   ✓ backend - switched to develop
+#   ✓ shared-lib - already on main
+#
+# ✓ Tag 'before-feature-x' restored! (3 repositories, 0 errors)
+```
+
+#### Reserved Tags: `master` and `main`
+
+Two special tags are reserved and work without needing to be saved:
+
+- `mgit restore master` - Switches all repositories to their `master` branch
+- `mgit restore main` - Switches all repositories to their `main` branch
+
+MetaGit automatically detects whether each repository uses `master` or `main` as the default branch.
+
+```bash
+# Switch all repos to their default branch (main or master)
+mgit restore main
+
+# Output:
+# 🕒 Restoring branches from tag 'main'...
+#
+# 🕒 Using reserved tag 'main' - will switch to default branch (master/main) for each repository
+#
+#   ✓ frontend - switched to main
+#   ✓ backend - switched to master
+#   ✓ shared-lib - switched to main
+```
+
+**Note**: You cannot save to reserved tag names:
+```bash
+mgit save master
+# Error: Tag 'master' is reserved and cannot be saved. Reserved tags: 'master', 'main'
+```
+
+#### Common Use Cases
+
+**1. Before starting a new feature:**
+```bash
+mgit save stable-state
+# Work on feature branches
+mgit restore stable-state  # Return to known-good state
+```
+
+**2. Quick context switching:**
+```bash
+# Save current work state
+mgit save working-on-feature-a
+
+# Switch to different feature
+mgit save working-on-feature-b
+
+# Switch back and forth
+mgit restore working-on-feature-a
+mgit restore working-on-feature-b
+```
+
+**3. Release snapshots:**
+```bash
+mgit save release-v1.0
+mgit save release-v2.0
+# Later, restore exact branch state for debugging old releases
+mgit restore release-v1.0
+```
+
+**4. Return to default branches:**
+```bash
+# Quick way to get all repos back to main/master
+mgit restore main
+```
 
 ## Task Execution
 

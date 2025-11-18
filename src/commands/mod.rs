@@ -2,7 +2,9 @@ pub mod init;
 pub mod pull;
 pub mod push;
 pub mod refresh;
+pub mod restore;
 pub mod run;
+pub mod save;
 pub mod status;
 pub mod sync;
 
@@ -10,6 +12,8 @@ pub use init::*;
 pub use pull::*;
 pub use push::*;
 pub use refresh::*;
+pub use restore::*;
 pub use run::*;
+pub use save::*;
 pub use status::*;
 pub use sync::*;
