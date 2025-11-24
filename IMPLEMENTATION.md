@@ -55,7 +55,7 @@ src/
 
 ### 1. Repository Management
 
-- **mgit init**: Automatically scans current directory for git repositories and generates `.mgitconfig.json`
+- **mgit init**: Automatically scans current directory for git repositories and generates `.mgitconfig.yaml`
 - **mgit status**: Shows current branch and last update time for all repositories
 - **mgit status -d**: Detailed view showing all branches with owners and timestamps
 
@@ -68,7 +68,7 @@ All operations use git2 library instead of shell commands:
 
 ### 3. Task Execution
 
-- Define custom tasks in `.mgitconfig.json`
+- Define custom tasks in `.mgitconfig.yaml`
 - **mgit run <task_name>**: Execute task steps sequentially
 - Real-time progress display with colored status indicators
 - Support for multiple script types (sh, bat, ps1, cmd, exe)
@@ -128,7 +128,7 @@ All operations use git2 library instead of shell commands:
 
 ## File Structure
 
-### Configuration File (.mgitconfig.json)
+### Configuration File (.mgitconfig.yaml)
 
 ```json
 {
@@ -196,7 +196,7 @@ Potential improvements that could be added:
 
 All requirements from Requirements.md have been implemented:
 
-✅ Multi-repository management via .mgitconfig.json
+✅ Multi-repository management via .mgitconfig.yaml
 ✅ mgit init - auto-detection of repositories
 ✅ mgit pull - pull all repositories
 ✅ mgit push - push all repositories  

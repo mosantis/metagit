@@ -113,7 +113,7 @@ impl TaskStep {
 impl Config {
     /// Get the path to the global configuration file in user's home directory
     pub fn global_config_path() -> Option<std::path::PathBuf> {
-        dirs::home_dir().map(|home| home.join(".mgitconfig.json"))
+        dirs::home_dir().map(|home| home.join(".mgitconfig.yaml"))
     }
 
     /// Resolve a repository path relative to the config file's directory
@@ -127,7 +127,7 @@ impl Config {
     }
 
     /// Get the database path relative to the config file's directory
-    /// Returns ".mgitdb" in the same directory as .mgitconfig.json
+    /// Returns ".mgitdb" in the same directory as .mgitconfig.yaml
     pub fn get_db_path(&self) -> std::path::PathBuf {
         if let Some(config_dir) = &self.config_dir {
             config_dir.join(".mgitdb")
@@ -136,8 +136,8 @@ impl Config {
         }
     }
 
-    /// Search for .mgitconfig.json starting from current directory and walking up
-    /// Stops at $HOME (does not use $HOME/.mgitconfig.json as project config)
+    /// Search for .mgitconfig.yaml starting from current directory and walking up
+    /// Stops at $HOME (does not use $HOME/.mgitconfig.yaml as project config)
     pub fn find_project_config() -> Option<std::path::PathBuf> {
         use std::env;
 
@@ -148,10 +148,10 @@ impl Config {
         let mut current_dir = env::current_dir().ok()?;
 
         loop {
-            // Check if .mgitconfig.json exists in current directory
-            let config_path = current_dir.join(".mgitconfig.json");
+            // Check if .mgitconfig.yaml exists in current directory
+            let config_path = current_dir.join(".mgitconfig.yaml");
             if config_path.exists() {
-                // Don't use $HOME/.mgitconfig.json as project config
+                // Don't use $HOME/.mgitconfig.yaml as project config
                 if current_dir != home_dir {
                     return Some(config_path);
                 }
@@ -179,11 +179,11 @@ impl Config {
         // Try to find project config by searching upward
         if let Some(project_config_path) = Self::find_project_config() {
             // Use the discovered project config path
-            return Self::load(project_config_path.to_str().unwrap_or(".mgitconfig.json"));
+            return Self::load(project_config_path.to_str().unwrap_or(".mgitconfig.yaml"));
         }
 
         // No project config found - error out
-        anyhow::bail!("No .mgitconfig.json found in current directory or parent directories.\nRun 'mgit init' to create one.")
+        anyhow::bail!("No .mgitconfig.yaml found in current directory or parent directories.\nRun 'mgit init' to create one.")
     }
 
     /// Load configuration with fallback hierarchy:
@@ -198,7 +198,7 @@ impl Config {
         // Try to load local config
         let local_config = if config_path.exists() {
             let content = std::fs::read_to_string(path)?;
-            let mut config: Config = serde_json::from_str(&content)?;
+            let mut config: Config = serde_yaml::from_str(&content)?;
             config.config_dir = config_dir.clone();
             Some(config)
         } else {
@@ -209,7 +209,7 @@ impl Config {
         let global_config = if let Some(global_path) = Self::global_config_path() {
             if global_path.exists() {
                 match std::fs::read_to_string(&global_path) {
-                    Ok(content) => serde_json::from_str::<Config>(&content).ok(),
+                    Ok(content) => serde_yaml::from_str::<Config>(&content).ok(),
                     Err(_) => None,
                 }
             } else {
@@ -253,7 +253,7 @@ impl Config {
         if let Some(global_path) = Self::global_config_path() {
             if global_path.exists() {
                 let content = std::fs::read_to_string(&global_path)?;
-                let config: Config = serde_json::from_str(&content)?;
+                let config: Config = serde_yaml::from_str(&content)?;
                 return Ok(Some(config));
             }
         }
@@ -261,7 +261,7 @@ impl Config {
     }
 
     pub fn save(&self, path: &str) -> anyhow::Result<()> {
-        let content = serde_json::to_string_pretty(self)?;
+        let content = serde_yaml::to_string(self)?;
         std::fs::write(path, content)?;
         Ok(())
     }

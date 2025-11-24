@@ -6,7 +6,7 @@ use std::cell::Cell;
 use std::collections::{HashMap, HashSet};
 use std::env;
 use std::path::{Path, PathBuf};
-//use std::process::Command;
+use std::process::Command;
 
 use crate::models::{BranchInfo, RepoState};
 
@@ -191,7 +191,7 @@ fn validate_ssh_auth(
             // Keys are configured but don't exist - provide specific error
             let mut error_msg = format!(
                 "SSH authentication will fail: Configured keys not found\n\n\
-                 The key '{}' is configured in .mgitconfig.json but doesn't exist on disk.\n\n\
+                 The key '{}' is configured in .mgitconfig.yaml but doesn't exist on disk.\n\n\
                  Please choose one of these solutions:\n\n",
                 key_path
             );
@@ -213,13 +213,13 @@ fn validate_ssh_auth(
                 "\nSolutions:\n\
                  1. Generate the missing SSH key:\n\
                     ssh-keygen -t ed25519 -f {}\n\n\
-                 2. Update .mgitconfig.json to point to an existing key:\n\
+                 2. Update .mgitconfig.yaml to point to an existing key:\n\
                     \"credentials\": {{\n\
                       \"{}\": \"~/.ssh/id_rsa\"  (or your actual key path)\n\
                     }}\n\n\
                  3. Start SSH agent and add your key:\n\
                     ssh-add ~/.ssh/id_rsa\n\
-                    (Then you won't need credentials in .mgitconfig.json)",
+                    (Then you won't need credentials in .mgitconfig.yaml)",
                 private_key.display(),
                 host
             ));
@@ -239,8 +239,8 @@ fn validate_ssh_auth(
            • Start SSH agent: eval $(ssh-agent)\n\
            • Add your key: ssh-add ~/.ssh/id_rsa\n\
            • Verify keys: ssh-add -l\n\n\
-         Solution 2 - Configure key in .mgitconfig.json:\n\
-           Add this to your .mgitconfig.json file:\n\
+         Solution 2 - Configure key in .mgitconfig.yaml:\n\
+           Add this to your .mgitconfig.yaml file:\n\
            \"credentials\": {{\n\
              \"{}\": \"~/.ssh/id_rsa\"\n\
            }}\n\n\
@@ -284,7 +284,7 @@ fn create_remote_callbacks<'a>(
 
         // Show configured credentials
         if credentials.is_empty() {
-            debug_log!(debug, "No credentials configured in .mgitconfig.json");
+            debug_log!(debug, "No credentials configured in .mgitconfig.yaml");
         } else {
             debug_log!(
                 debug,
@@ -323,7 +323,7 @@ fn create_remote_callbacks<'a>(
                 "Authentication failed after {} attempts. Please check your SSH setup:\n\
                  1. Ensure SSH agent is running and has your key: ssh-add -l\n\
                  2. Add your key to the agent: ssh-add ~/.ssh/id_rsa\n\
-                 3. Or configure credentials in .mgitconfig.json",
+                 3. Or configure credentials in .mgitconfig.yaml",
                 MAX_ATTEMPTS
             )));
         }

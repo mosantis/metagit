@@ -1,3 +1,84 @@
+# Project Context
+
+## What is MetaGit (mgit)?
+
+MetaGit is a Rust CLI tool that manages multiple git repositories without using git submodules. It provides unified git operations, task automation, and state management across repos.
+
+**Latest Activity**: Save/restore feature implemented (commit 1f86aa0, Nov 18, 2025)
+
+## Key Features
+
+- **Multi-repo Git Operations**: `mgit pull/push/sync` across all repos
+- **Status Dashboard**: `mgit status -d` shows branches, ownership, commit counts, sync status
+- **Task Runner**: Execute cross-platform build/test/deploy tasks with `mgit run <task>`
+- **Save/Restore**: `mgit save <tag>` and `mgit restore <tag>` for branch state snapshots
+- **Variable Substitution**: Environment vars, `-DVAR=VALUE` flags, `$(HOME)`, `$(CWD)`, `$(PROJECT_DIR)`
+- **User Normalization**: Auto-discovers and normalizes author identities
+- **SSH Authentication**: Configurable SSH keys per git hosting service
+- **Nerd Font Support**: Enhanced icons when `NERD_FONT=1` environment variable is set
+
+## Recent Developments
+
+1. **Save/Restore** - Full implementation with reserved tags for master/main
+2. **Variable Substitution** - Support for env vars and custom variables in tasks
+3. **Improved Time Display** - Better relative time formatting
+4. **Branch Ownership** - Enhanced handling for branches with 0 commits
+5. **Fixed mgitdb Location** - Corrected database path resolution
+
+## Project Structure
+
+```
+src/
+├── main.rs               # CLI entry point (clap)
+├── commands/             # Command implementations
+│   ├── init.rs          # Repository scanning
+│   ├── status.rs        # Status display (247 lines)
+│   ├── pull.rs, push.rs, sync.rs
+│   ├── refresh.rs       # Statistics caching (181 lines)
+│   ├── save.rs          # Save branch states (125 lines)
+│   ├── restore.rs       # Restore branch states (214 lines)
+│   └── run.rs           # Task execution (252 lines)
+├── db/                   # sled database wrapper
+├── models/               # config.rs (380 lines), repo_state.rs
+└── utils/                # git.rs (1,149 lines), icons.rs, time.rs, script.rs, vars.rs
+```
+
+**Total**: ~3,456 lines of Rust code
+
+## Key Dependencies
+
+- **git2 0.19**: libgit2 bindings for git operations
+- **sled 0.34**: Embedded database for caching
+- **clap 4.5**: CLI argument parsing
+- **serde_json 1.0**: Configuration serialization
+- **chrono 0.4**: Time handling
+- **colored 2.1**: Terminal colors
+
+## Configuration Files
+
+- **`.mgitconfig.yaml`**: Project-level config (repositories, tasks, shells)
+- **`~/.mgitconfig.yaml`**: Global config (credentials, user aliases, shells)
+- **`.mgitdb/`**: sled database cache directory
+
+## Common Workflows
+
+```bash
+mgit init              # Scan and create .mgitconfig.yaml
+mgit refresh           # Update cache with branch statistics
+mgit status            # Quick view of all repos
+mgit status -d         # Detailed view with ownership
+mgit pull              # Update all repos
+mgit run <task>        # Execute defined tasks
+mgit save v1.0         # Save current branch state
+mgit restore v1.0      # Restore to saved state
+```
+
+## Testing
+
+The project includes test repositories in `test-repos/` for validating functionality across platforms (Windows, Linux, macOS).
+
+---
+
 # About libraries and frameworks
 
 When referencing a library, specially in rust, check the release cadence and history of vulnerabilities. Ensure that the library is actively maintained and regularly updated to address security issues. Consider the library's community support and engagement, as well as its overall quality and reliability. Evaluate the library's documentation, test coverage, and user feedback to gauge its maturity and suitability for your project. Additionally, assess the library's compatibility with our project's dependencies and ecosystem. Finally, consider the library's licensing terms and compatibility with your project's licensing requirements.

@@ -18,7 +18,7 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Commands {
-    /// Initialize .mgitconfig.json by scanning current directory
+    /// Initialize .mgitconfig.yaml by scanning current directory
     Init,
 
     /// Show status of all repositories
@@ -64,7 +64,7 @@ enum Commands {
         tag: String,
     },
 
-    /// Run a task defined in .mgitconfig.json (run without task name to list available tasks)
+    /// Run a task defined in .mgitconfig.yaml (run without task name to list available tasks)
     Run {
         /// Name of the task to run (optional - omit to list all tasks)
         task_name: Option<String>,

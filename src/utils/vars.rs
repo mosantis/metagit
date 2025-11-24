@@ -30,7 +30,7 @@ impl VarContext {
             vars.insert("CWD".to_string(), cwd.to_string_lossy().to_string());
         }
 
-        // PROJECT_DIR - location of .mgitconfig.json
+        // PROJECT_DIR - location of .mgitconfig.yaml
         vars.insert(
             "PROJECT_DIR".to_string(),
             project_dir.to_string_lossy().to_string(),

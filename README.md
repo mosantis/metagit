@@ -28,7 +28,7 @@ A command-line tool written in Rust to enhance git functionality when dealing wi
 - **Variable substitution**: Use environment variables, predefined variables (HOME, CWD, PROJECT_DIR), and user-defined variables in tasks
 - **Cross-platform support**: Platform-specific task steps for Windows, Linux, and macOS
 - **Configurable shells**: Choose your preferred shell executables (bash, zsh, pwsh, etc.)
-- **Global and project configuration**: Set user-wide defaults in `~/.mgitconfig.json`, override per-project
+- **Global and project configuration**: Set user-wide defaults in `~/.mgitconfig.yaml`, override per-project
 - **Local state caching**: Uses an embedded database (sled) to cache repository state
 - **Branch ownership tracking**: See who owns each branch and commit statistics
 - **Detailed status views**: See all branches with ownership, commit counts, and sync status
@@ -91,7 +91,7 @@ mgit run build_all
 
 ### Initialize
 
-Scan the current directory for git repositories and create a `.mgitconfig.json`:
+Scan the current directory for git repositories and create a `.mgitconfig.yaml`:
 
 ```bash
 mgit init
@@ -167,7 +167,7 @@ This command:
 - Analyzes all branches in all repositories
 - Collects commit statistics per author
 - Calculates branch ownership
-- Auto-discovers author identities and adds them to `.mgitconfig.json`
+- Auto-discovers author identities and adds them to `.mgitconfig.yaml`
 - Caches results in the state database for fast status queries
 
 Output:
@@ -178,7 +178,7 @@ Refreshing repository states...
   ✓ 📁 frontend                       2 branches, 28 commits analyzed
 
 Successfully refreshed 2 repositories
-Added 3 new author aliases to .mgitconfig.json
+Added 3 new author aliases to .mgitconfig.yaml
 ```
 
 **When to refresh**:
@@ -245,7 +245,7 @@ Already up-to-date
 - Checking if SSH agent is running
 - Understanding which authentication method is being used
 
-**Note**: MetaGit uses vendored libssh2 and does **not** read `~/.ssh/config`. Use SSH agent or configure credentials in `.mgitconfig.json`. See [SSH Credentials Configuration](#ssh-credentials-configuration) for details.
+**Note**: MetaGit uses vendored libssh2 and does **not** read `~/.ssh/config`. Use SSH agent or configure credentials in `.mgitconfig.yaml`. See [SSH Credentials Configuration](#ssh-credentials-configuration) for details.
 
 ### Save and Restore Branch States
 
@@ -274,7 +274,7 @@ mgit save before-feature-x
 # ✓ Tag 'before-feature-x' saved successfully! (3 repositories, 0 errors)
 ```
 
-The tag is saved to `.mgitconfig.json` in the `tags` section:
+The tag is saved to `.mgitconfig.yaml` in the `tags` section:
 
 ```json
 {
@@ -378,7 +378,7 @@ mgit restore main
 
 ## Task Execution
 
-Define tasks in `.mgitconfig.json`:
+Define tasks in `.mgitconfig.yaml`:
 
 ```json
 {
@@ -464,7 +464,7 @@ MetaGit provides several predefined variables:
 
 - `$(HOME)` - User's home directory
 - `$(CWD)` - Current working directory where `mgit` was invoked
-- `$(PROJECT_DIR)` - Directory containing the `.mgitconfig.json` file
+- `$(PROJECT_DIR)` - Directory containing the `.mgitconfig.yaml` file
 
 All environment variables are also available for use.
 
@@ -758,8 +758,8 @@ source ~/.bashrc  # or ~/.zshrc
 
 MetaGit supports two levels of configuration:
 
-1. **Global Configuration** (`~/.mgitconfig.json`): User-wide defaults, especially for shell preferences
-2. **Project Configuration** (`.mgitconfig.json`): Project-specific settings
+1. **Global Configuration** (`~/.mgitconfig.yaml`): User-wide defaults, especially for shell preferences
+2. **Project Configuration** (`.mgitconfig.yaml`): Project-specific settings
 
 The configuration hierarchy works as follows:
 - Project settings take precedence over global settings
@@ -768,7 +768,7 @@ The configuration hierarchy works as follows:
 
 ### Configuration File Structure
 
-The `.mgitconfig.json` file structure (same for both global and project configs):
+The `.mgitconfig.yaml` file structure (same for both global and project configs):
 
 ```json
 {
@@ -964,7 +964,7 @@ mgit pull
 
 The SSH agent approach works with your `~/.ssh/config` because you add keys manually, and those keys can be configured in your SSH config.
 
-**Option 2: Explicitly Configure Keys in .mgitconfig.json**
+**Option 2: Explicitly Configure Keys in .mgitconfig.yaml**
 
 Instead of relying on SSH config, map each hostname to its key:
 ```json
@@ -1057,7 +1057,7 @@ Refreshing repository states...
   ✓ 📁 frontend   1 branches, 2 commits analyzed
 
 Successfully refreshed 4 repositories
-Added 4 new author aliases to .mgitconfig.json
+Added 4 new author aliases to .mgitconfig.yaml
 ```
 
 This creates entries like:
@@ -1129,13 +1129,13 @@ Now all commits by "John Crammer" and "JC" are correctly attributed to "John" an
 
 ### Global Configuration
 
-You can set user-wide defaults in `~/.mgitconfig.json` (in your home directory). This is especially useful for shell preferences, credentials, and user normalizations that you want to use across all projects.
+You can set user-wide defaults in `~/.mgitconfig.yaml` (in your home directory). This is especially useful for shell preferences, credentials, and user normalizations that you want to use across all projects.
 
 **Create global configuration**:
 
 ```bash
 # Linux/macOS
-cat > ~/.mgitconfig.json << 'EOF'
+cat > ~/.mgitconfig.yaml << 'EOF'
 {
   "shells": {
     "sh": "bash",
@@ -1162,19 +1162,19 @@ EOF
     "github.com": "~/.ssh/id_ed25519"
   }
 }
-'@ | Out-File -FilePath "$env:USERPROFILE\.mgitconfig.json" -Encoding utf8
+'@ | Out-File -FilePath "$env:USERPROFILE\.mgitconfig.yaml" -Encoding utf8
 ```
 
 **How it works**:
 
-1. MetaGit first loads the project's `.mgitconfig.json`
-2. If shell settings have default values, it looks for `~/.mgitconfig.json`
+1. MetaGit first loads the project's `.mgitconfig.yaml`
+2. If shell settings have default values, it looks for `~/.mgitconfig.yaml`
 3. Global shell settings are applied if not overridden locally
 4. You can override global settings in any project by specifying shells locally
 
 **Example**:
 
-Global config (`~/.mgitconfig.json`):
+Global config (`~/.mgitconfig.yaml`):
 ```json
 {
   "shells": {
@@ -1183,7 +1183,7 @@ Global config (`~/.mgitconfig.json`):
 }
 ```
 
-Project config (`.mgitconfig.json`):
+Project config (`.mgitconfig.yaml`):
 ```json
 {
   "repositories": [...],

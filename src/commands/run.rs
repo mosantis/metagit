@@ -45,7 +45,7 @@ pub fn run_command(task_name: Option<&str>, detailed: bool, defines: Vec<String>
     // If no task name provided, list all available tasks
     if task_name.is_none() {
         if config.tasks.is_empty() {
-            println!("No tasks defined in .mgitconfig.json");
+            println!("No tasks defined in .mgitconfig.yaml");
             println!("\nAdd tasks to your configuration file to use this command.");
             return Ok(());
         }

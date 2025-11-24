@@ -131,7 +131,7 @@ pub fn refresh_command() -> Result<()> {
 
     // Save updated config if anything was added
     if unmapped_count > 0 {
-        config.save(".mgitconfig.json")?;
+        config.save(".mgitconfig.yaml")?;
     }
 
     println!();
@@ -169,7 +169,7 @@ pub fn refresh_command() -> Result<()> {
     if unmapped_count > 0 {
         println!(
             "{}",
-            format!("Added {} new author alias{} to .mgitconfig.json",
+            format!("Added {} new author alias{} to .mgitconfig.yaml",
                 unmapped_count,
                 if unmapped_count == 1 { "" } else { "es" }
             )

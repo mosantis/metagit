@@ -4,7 +4,7 @@ Cargo.lock
 
 # MetaGit runtime files
 .mgitdb/
-.mgitconfig.json
+.mgitconfig.yaml
 
 # Editor files
 .vscode/

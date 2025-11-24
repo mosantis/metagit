@@ -7,7 +7,7 @@ use crate::models::{Config, Repository};
 use crate::utils::{get_repo_url, is_git_repo};
 
 pub fn init_command() -> Result<()> {
-    let config_path = ".mgitconfig.json";
+    let config_path = ".mgitconfig.yaml";
 
     if Path::new(config_path).exists() {
         println!("Configuration file already exists at {}", config_path);

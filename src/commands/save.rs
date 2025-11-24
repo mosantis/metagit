@@ -101,7 +101,7 @@ pub fn save_command(tag: &str) -> Result<()> {
 
     // Find the project config path to save to
     let config_path = Config::find_project_config()
-        .ok_or_else(|| anyhow!("Could not find .mgitconfig.json"))?;
+        .ok_or_else(|| anyhow!("Could not find .mgitconfig.yaml"))?;
 
     config.save(config_path.to_str().unwrap())?;
 
